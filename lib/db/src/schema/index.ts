@@ -148,3 +148,21 @@ export const analyticsEventsTable = pgTable(
 );
 
 export type AnalyticsEvent = typeof analyticsEventsTable.$inferSelect;
+
+// ─── AI Generation Logs ───────────────────────────────────────────────────────
+export const aiGenerationLogsTable = pgTable(
+  "ai_generation_logs",
+  {
+    id: serial("id").primaryKey(),
+    productId: integer("product_id").references(() => productsTable.id, { onDelete: "set null" }),
+    productName: text("product_name").notNull(),
+    model: varchar("model", { length: 64 }).default("gpt-4o-mini").notNull(),
+    tokensUsed: integer("tokens_used"),
+    success: boolean("success").default(true).notNull(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("ai_logs_product_idx").on(t.productId)]
+);
+
+export type AiGenerationLog = typeof aiGenerationLogsTable.$inferSelect;

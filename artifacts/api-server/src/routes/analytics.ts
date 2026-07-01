@@ -29,11 +29,7 @@ router.get("/analytics/dashboard", requireAuth, async (_req, res): Promise<void>
     .from(analyticsEventsTable)
     .where(gte(analyticsEventsTable.createdAt, todayStart));
 
-  const [weekStart] = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return [d];
-  })();
+  const weekStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const [weeklyViews] = await db
     .select({ count: count() })
     .from(analyticsEventsTable)
@@ -57,9 +53,21 @@ router.get("/analytics/dashboard", requireAuth, async (_req, res): Promise<void>
   });
 });
 
-router.get("/analytics/timeseries", requireAuth, async (req, res): Promise<void> => {
-  const period = (req.query.period as string) || "7d";
-  const days = period === "30d" ? 30 : period === "90d" ? 90 : 7;
+function parsePeriodDays(period: string | undefined): number {
+  switch (period) {
+    case "monthly":
+    case "90d":
+      return 90;
+    case "weekly":
+    case "30d":
+      return 30;
+    default:
+      return 7;
+  }
+}
+
+async function getTimeseries(period: string | undefined) {
+  const days = parsePeriodDays(period);
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
   const menuRows = await db
@@ -68,12 +76,7 @@ router.get("/analytics/timeseries", requireAuth, async (req, res): Promise<void>
       count: count(),
     })
     .from(analyticsEventsTable)
-    .where(
-      and(
-        gte(analyticsEventsTable.createdAt, since),
-        eq(analyticsEventsTable.type, "menu_view")
-      )
-    )
+    .where(and(gte(analyticsEventsTable.createdAt, since), eq(analyticsEventsTable.type, "menu_view")))
     .groupBy(sql`DATE(${analyticsEventsTable.createdAt})`)
     .orderBy(sql`DATE(${analyticsEventsTable.createdAt})`);
 
@@ -83,31 +86,33 @@ router.get("/analytics/timeseries", requireAuth, async (req, res): Promise<void>
       count: count(),
     })
     .from(analyticsEventsTable)
-    .where(
-      and(
-        gte(analyticsEventsTable.createdAt, since),
-        eq(analyticsEventsTable.type, "product_view")
-      )
-    )
+    .where(and(gte(analyticsEventsTable.createdAt, since), eq(analyticsEventsTable.type, "product_view")))
     .groupBy(sql`DATE(${analyticsEventsTable.createdAt})`)
     .orderBy(sql`DATE(${analyticsEventsTable.createdAt})`);
 
-  const dateSet = new Set([
-    ...menuRows.map((r) => r.date),
-    ...productRows.map((r) => r.date),
-  ]);
+  const dateSet = new Set([...menuRows.map((r) => r.date), ...productRows.map((r) => r.date)]);
   const menuMap = Object.fromEntries(menuRows.map((r) => [r.date, r.count]));
   const productMap = Object.fromEntries(productRows.map((r) => [r.date, r.count]));
 
-  const merged = Array.from(dateSet)
+  return Array.from(dateSet)
     .sort()
     .map((date) => ({
       date,
       menuViews: menuMap[date] ?? 0,
       productViews: productMap[date] ?? 0,
     }));
+}
 
-  res.json(merged);
+// Spec path: /analytics/views
+router.get("/analytics/views", requireAuth, async (req, res): Promise<void> => {
+  const data = await getTimeseries(req.query.period as string | undefined);
+  res.json(data);
+});
+
+// Legacy path kept for backwards compat
+router.get("/analytics/timeseries", requireAuth, async (req, res): Promise<void> => {
+  const data = await getTimeseries(req.query.period as string | undefined);
+  res.json(data);
 });
 
 router.get("/analytics/top-products", requireAuth, async (_req, res): Promise<void> => {

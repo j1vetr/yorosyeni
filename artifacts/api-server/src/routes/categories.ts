@@ -44,7 +44,7 @@ router.get("/categories/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(full);
 });
 
-router.put("/categories/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/categories/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { translations, ...catData } = req.body;
   if (Object.keys(catData).length > 0) {
@@ -69,7 +69,7 @@ router.put("/categories/:id", requireAuth, async (req, res): Promise<void> => {
 router.delete("/categories/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   await db.delete(categoriesTable).where(eq(categoriesTable.id, id));
-  res.json({ ok: true });
+  res.status(204).end();
 });
 
 router.post("/categories/reorder", requireAuth, async (req, res): Promise<void> => {

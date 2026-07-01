@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, X, Check, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, X, GripVertical } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -121,7 +121,7 @@ function CategoryModal({
         translations: translations.filter((t) => t.name),
       };
       if (category?.id) {
-        await apiFetch(`/categories/${category.id}`, { method: "PUT", body: JSON.stringify(payload) });
+        await apiFetch(`/categories/${category.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       } else {
         await apiFetch("/categories", { method: "POST", body: JSON.stringify(payload) });
       }

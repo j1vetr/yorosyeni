@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, X, GripVertical, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload, ImageIcon } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -62,6 +62,123 @@ interface Language {
 }
 
 const LANG_FLAGS: Record<string, string> = { tr: "🇹🇷", en: "🇬🇧", ru: "🇷🇺", ar: "🇸🇦" };
+
+async function uploadImage(file: File): Promise<string> {
+  const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    {
+      method: "POST",
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    }
+  );
+
+  await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+
+  const { servingUrl } = await apiFetch<{ servingUrl: string }>("/storage/uploads/confirm", {
+    method: "POST",
+    body: JSON.stringify({ objectPath }),
+  });
+
+  return servingUrl;
+}
+
+function ImageUploader({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Sadece görsel dosyaları desteklenir", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Dosya 5 MB'dan büyük olamaz", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadImage(file);
+      onChange(url);
+      toast({ title: "Görsel yüklendi" });
+    } catch (err) {
+      toast({ title: "Görsel yükleme hatası", description: String(err), variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Ürün Görseli</label>
+      <div className="flex gap-2">
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://... veya dosya yükleyin"
+          className={inputCls}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:text-white hover:border-neutral-500 disabled:opacity-50 transition-colors whitespace-nowrap"
+        >
+          {uploading ? (
+            <span className="animate-spin text-xs">⟳</span>
+          ) : (
+            <Upload className="w-4 h-4" />
+          )}
+          {uploading ? "Yükleniyor..." : "Yükle"}
+        </button>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFile}
+      />
+      {value && (
+        <div className="flex items-center gap-3 mt-2">
+          <img
+            src={value}
+            alt="Önizleme"
+            className="w-16 h-16 rounded-lg object-cover border border-neutral-700"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-xs text-neutral-500 hover:text-red-400 transition-colors"
+          >
+            Görseli kaldır
+          </button>
+        </div>
+      )}
+      {!value && (
+        <div className="flex items-center gap-2 p-3 border border-dashed border-neutral-700 rounded-lg text-neutral-600">
+          <ImageIcon className="w-4 h-4" />
+          <span className="text-xs">Görsel eklenmedi</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SortableProductRow({
   product,
@@ -167,18 +284,17 @@ function ProductModal({
         translations: Record<string, { name: string; description: string; ingredients: string; allergenNote: string; specialNote: string }>;
       }>("/ai/generate", {
         method: "POST",
-        body: JSON.stringify({ productName: trName, category: catName, languages: languages.map((l) => l.code) }),
+        body: JSON.stringify({
+          productName: trName,
+          productId: product?.id ?? undefined,
+          category: catName,
+          languages: languages.map((l) => l.code),
+        }),
       });
 
-      if (result.allergens?.length) {
-        setAllergens(result.allergens.join(", "));
-      }
-      if (result.calories) {
-        setCalories(String(result.calories));
-      }
-      if (result.nutritionFacts) {
-        setNutrition(result.nutritionFacts);
-      }
+      if (result.allergens?.length) setAllergens(result.allergens.join(", "));
+      if (result.calories) setCalories(String(result.calories));
+      if (result.nutritionFacts) setNutrition(result.nutritionFacts);
       setTranslations((prev) =>
         prev.map((t) => {
           const gen = result.translations?.[t.languageCode];
@@ -218,7 +334,7 @@ function ProductModal({
         translations: translations.filter((t) => t.name),
       };
       if (product?.id) {
-        await apiFetch(`/products/${product.id}`, { method: "PUT", body: JSON.stringify(payload) });
+        await apiFetch(`/products/${product.id}`, { method: "PATCH", body: JSON.stringify(payload) });
       } else {
         await apiFetch("/products", { method: "POST", body: JSON.stringify(payload) });
       }
@@ -242,7 +358,6 @@ function ProductModal({
           <button onClick={onClose}><X className="w-5 h-5 text-neutral-400" /></button>
         </div>
         <div className="px-6 py-5 space-y-5">
-          {/* Basic fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Slug</label>
@@ -271,17 +386,13 @@ function ProductModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Görsel URL</label>
-            <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className={inputCls} />
-          </div>
+          <ImageUploader value={imageUrl} onChange={setImageUrl} />
 
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Alerjenler (virgülle ayırın)</label>
             <input value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="gluten, süt, yumurta" className={inputCls} />
           </div>
 
-          {/* Nutrition facts */}
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-3">Besin Değerleri (porsiyon başına)</label>
             <div className="grid grid-cols-2 gap-3">
@@ -314,7 +425,6 @@ function ProductModal({
             </button>
           </div>
 
-          {/* Translations */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler & İçerik</label>
@@ -463,14 +573,14 @@ export default function AdminProducts() {
           Tümü ({products.length})
         </button>
         {categories.map((c) => {
-          const count = products.filter((p) => p.categoryId === c.id).length;
+          const cnt = products.filter((p) => p.categoryId === c.id).length;
           return (
             <button
               key={c.id}
               onClick={() => setFilterCat(c.id)}
               className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === c.id ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
             >
-              {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug} ({count})
+              {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug} ({cnt})
             </button>
           );
         })}

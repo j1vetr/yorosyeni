@@ -79,7 +79,7 @@ export default function AdminSettings() {
   async function handleSave() {
     setSaving(true);
     try {
-      await apiFetch("/settings", { method: "PUT", body: JSON.stringify(form) });
+      await apiFetch("/settings", { method: "PATCH", body: JSON.stringify(form) });
       if (form.slug) updateQr(form.slug);
       toast({ title: "Ayarlar kaydedildi" });
     } catch (err) {
@@ -105,7 +105,7 @@ export default function AdminSettings() {
 
   async function toggleLanguage(lang: Language) {
     await apiFetch(`/languages/${lang.id}`, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify({ isActive: !lang.isActive }),
     });
     loadLanguages();

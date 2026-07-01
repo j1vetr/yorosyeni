@@ -20,7 +20,7 @@ router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
   res.json(settings);
 });
 
-router.put("/settings", requireAuth, async (req, res): Promise<void> => {
+router.patch("/settings", requireAuth, async (req, res): Promise<void> => {
   const existing = await getSettings();
   const body = req.body;
   if (existing) {

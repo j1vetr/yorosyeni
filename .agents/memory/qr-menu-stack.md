@@ -16,8 +16,4 @@ description: Architecture and port assignments for the QR Menu SaaS platform
 - All admin routes behind `requireAuth` middleware in `lib/auth.ts`
 - DB push: `pnpm --filter @workspace/db run push`
 
-## Seed credentials
-- Admin: `admin` / `admin123`
-- Menu slug: `demo-restoran` → `/menu/demo-restoran`
-
 **Why:** Documented so future sessions can quickly understand the setup without reading all configs.

@@ -1,13 +1,14 @@
 import { Router } from "express";
 import { requireAuth } from "../lib/auth";
 import { db } from "../lib/db";
-import { settingsTable } from "@workspace/db/schema";
+import { settingsTable, aiGenerationLogsTable } from "@workspace/db/schema";
 
 const router = Router();
 
 router.post("/ai/generate", requireAuth, async (req, res): Promise<void> => {
-  const { productName, category, languages } = req.body as {
+  const { productName, productId, category, languages } = req.body as {
     productName: string;
+    productId?: number;
     category?: string;
     languages?: string[];
   };
@@ -53,6 +54,9 @@ Rules:
 - translations[lang].specialNote: chef recommendation or serving suggestion in that language (can be empty string)
 - Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
 
+  let tokensUsed: number | undefined;
+  let success = false;
+
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -70,15 +74,42 @@ Rules:
 
     if (!response.ok) {
       const err = await response.text();
+      await db.insert(aiGenerationLogsTable).values({
+        productId: productId ?? null,
+        productName,
+        model: "gpt-4o-mini",
+        success: false,
+        errorMessage: `OpenAI HTTP ${response.status}: ${err.slice(0, 500)}`,
+      });
       res.status(502).json({ error: "OpenAI error", detail: err });
       return;
     }
 
     const data = await response.json();
+    tokensUsed = data.usage?.total_tokens;
     const content = data.choices?.[0]?.message?.content;
     const parsed = JSON.parse(content);
+    success = true;
+
+    await db.insert(aiGenerationLogsTable).values({
+      productId: productId ?? null,
+      productName,
+      model: "gpt-4o-mini",
+      tokensUsed,
+      success: true,
+    });
+
     res.json(parsed);
   } catch (err) {
+    if (!success) {
+      await db.insert(aiGenerationLogsTable).values({
+        productId: productId ?? null,
+        productName,
+        model: "gpt-4o-mini",
+        success: false,
+        errorMessage: String(err).slice(0, 500),
+      }).catch(() => {});
+    }
     res.status(500).json({ error: "AI generation failed", detail: String(err) });
   }
 });

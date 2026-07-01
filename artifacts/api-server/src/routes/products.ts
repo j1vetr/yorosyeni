@@ -18,10 +18,9 @@ async function getProductWithTranslations(id: number) {
 
 router.get("/products", requireAuth, async (req, res): Promise<void> => {
   const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
-  const query = db.select().from(productsTable).orderBy(asc(productsTable.sortOrder));
   const rows = categoryId
     ? await db.select().from(productsTable).where(eq(productsTable.categoryId, categoryId)).orderBy(asc(productsTable.sortOrder))
-    : await query;
+    : await db.select().from(productsTable).orderBy(asc(productsTable.sortOrder));
   const withTr = await Promise.all(rows.map((p) => getProductWithTranslations(p.id)));
   res.json(withTr.filter(Boolean));
 });
@@ -31,7 +30,7 @@ router.post("/products", requireAuth, async (req, res): Promise<void> => {
   const [created] = await db.insert(productsTable).values(productData).returning();
   if (translations?.length) {
     await db.insert(productTranslationsTable).values(
-      translations.map((t: { languageCode: string; name: string; description?: string }) => ({
+      translations.map((t: Record<string, string>) => ({
         ...t,
         productId: created.id,
       }))
@@ -48,7 +47,7 @@ router.get("/products/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(full);
 });
 
-router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
+router.patch("/products/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   const { translations, ...productData } = req.body;
   if (Object.keys(productData).length > 0) {
@@ -58,7 +57,7 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
     await db.delete(productTranslationsTable).where(eq(productTranslationsTable.productId, id));
     if (translations.length > 0) {
       await db.insert(productTranslationsTable).values(
-        translations.map((t: { languageCode: string; name: string; description?: string }) => ({
+        translations.map((t: Record<string, string>) => ({
           ...t,
           productId: id,
         }))
@@ -73,7 +72,7 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
 router.delete("/products/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id);
   await db.delete(productsTable).where(eq(productsTable.id, id));
-  res.json({ ok: true });
+  res.status(204).end();
 });
 
 router.post("/products/reorder", requireAuth, async (req, res): Promise<void> => {

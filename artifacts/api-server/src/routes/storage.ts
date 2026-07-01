@@ -5,7 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
+import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import { requireAuth } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -46,11 +46,44 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
 });
 
 /**
+ * POST /storage/uploads/confirm
+ *
+ * After client-side upload to the presigned URL, call this endpoint to:
+ * 1. Mark the object as public (visibility: "public" ACL)
+ * 2. Return the serving URL for use as imageUrl in products/settings
+ *
+ * Requires authentication.
+ */
+router.post("/storage/uploads/confirm", requireAuth, async (req: Request, res: Response) => {
+  const { objectPath } = req.body as { objectPath?: string };
+  if (!objectPath || typeof objectPath !== "string") {
+    res.status(400).json({ error: "objectPath is required" });
+    return;
+  }
+
+  try {
+    const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+      owner: String(req.session.userId),
+      visibility: "public",
+    });
+
+    // Derive the serving URL: /api/storage/objects/{path without /objects/ prefix}
+    const servingPath = normalizedPath.startsWith("/objects/")
+      ? `/api/storage/objects/${normalizedPath.slice("/objects/".length)}`
+      : `/api/storage/objects/${normalizedPath}`;
+
+    res.json({ servingUrl: servingPath, objectPath: normalizedPath });
+  } catch (error) {
+    req.log.error({ err: error }, "Error confirming upload");
+    res.status(500).json({ error: "Failed to confirm upload" });
+  }
+});
+
+/**
  * GET /storage/public-objects/*
  *
  * Serve public assets from PUBLIC_OBJECT_SEARCH_PATHS.
  * These are unconditionally public — no authentication or ACL checks.
- * IMPORTANT: Always provide this endpoint when object storage is set up.
  */
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
@@ -82,24 +115,36 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
 /**
  * GET /storage/objects/*
  *
- * Serve private object entities from PRIVATE_OBJECT_DIR.
- * Requires authentication and ACL check.
+ * Serve object entities from PRIVATE_OBJECT_DIR.
+ * - If ACL policy visibility is "public": serve without authentication.
+ * - If ACL policy visibility is "private" or missing: require auth + ACL check.
  */
-router.get("/storage/objects/*path", requireAuth, async (req: Request, res: Response) => {
+router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
-    const canAccess = await objectStorageService.canAccessObjectEntity({
-      userId: req.session.userId!,
-      objectFile,
-      requestedPermission: ObjectPermission.READ,
-    });
-    if (!canAccess) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
+    // Check ACL — public objects are served without auth
+    const aclPolicy = await getObjectAclPolicy(objectFile).catch(() => null);
+    const isPublic = aclPolicy?.visibility === "public";
+
+    if (!isPublic) {
+      // Private object: require auth
+      if (!req.session.userId) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        userId: req.session.userId!,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+      if (!canAccess) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
     }
 
     const response = await objectStorageService.downloadObject(objectFile);
