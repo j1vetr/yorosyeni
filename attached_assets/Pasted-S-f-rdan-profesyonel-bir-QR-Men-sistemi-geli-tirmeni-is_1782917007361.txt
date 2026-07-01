@@ -1,0 +1,133 @@
+Sıfırdan profesyonel bir QR Menü sistemi geliştirmeni istiyorum. Sistem modern, şık, anlaşılır ve Awwwards seviyesinde premium bir tasarıma sahip olmalı. Tasarım restoran, kafe, otel ve zincir işletmelere uygun olmalı. Mobil öncelikli çalışmalı çünkü müşteriler menüyü çoğunlukla telefondan açacak.
+
+Proje %100 PostgreSQL kullanacak. Ürünler, kategoriler, diller, görüntülenme istatistikleri, admin kullanıcıları, alerjenler, kalori/enerji değerleri, ürün sıralamaları ve tüm içerikler PostgreSQL’de tutulmalı. LocalStorage, JSON dosyası veya geçici veri yapısı kullanılmamalı. Tüm kalıcı veriler PostgreSQL üzerinden yönetilmeli.
+
+Sistemde iki ana bölüm olacak:
+
+Müşteri QR Menü Arayüzü
+Bu bölüm müşterilerin QR kod ile açtığı menü sayfası olacak. Tasarım çok şık, hızlı, sade ve anlaşılır olmalı. Kategoriler üstte yatay kaydırmalı veya modern sekmeli yapıda listelenmeli. Ürün kartları görselli, fiyatlı, açıklamalı ve premium görünmeli. Ürün detayına girildiğinde ürün adı, açıklama, fiyat, ürün görseli, kalori, enerji değeri, alerjen bilgileri, içerik bilgileri ve varsa özel etiketler gösterilmeli.
+
+Menü 4 dil desteklemeli. Örneğin Türkçe, İngilizce, Rusça ve Arapça olacak şekilde sistem hazırlanabilir ama admin panelden dil isimleri yönetilebilir olsun. Müşteri menüde dil seçebilmeli. Dil seçimi tasarım içinde şık bir şekilde yer almalı. Her ürün ve kategori için 4 dilde başlık/açıklama girilebilmeli.
+
+Admin Paneli
+Admin paneli profesyonel, modern ve kullanımı kolay olmalı. Admin panelinde şu özellikler olmalı:
+Dashboard
+Toplam ürün sayısı
+Toplam kategori sayısı
+Toplam menü görüntülenmesi
+En çok görüntülenen ürünler
+Günlük/haftalık/aylık görüntülenme grafikleri
+Dil bazlı görüntülenme istatistikleri
+Ürün ekleme, düzenleme, silme
+Ürün görseli yükleme
+Ürün fiyatı ekleme
+Ürün aktif/pasif durumu
+Ürün sıralama
+Kategori ekleme, düzenleme, silme
+Kategori sıralama
+Kategori aktif/pasif durumu
+Ürünleri kategoriye bağlama
+Hangi ürünün kaç kez görüntülendiğini gösterme
+Her ürün için kalori, enerji değeri, alerjenler ve içerik alanları
+4 dil için manuel içerik giriş alanları
+ChatGPT destekli içerik oluşturma
+
+ChatGPT Entegrasyonu
+Admin panelinde ürün ekleme veya düzenleme ekranında ChatGPT destekli bir alan olacak. Admin ürün adını, kısa notunu veya içeriğini yazdığında sistem ChatGPT’den yardım alacak.
+
+Örnek kullanım:
+Admin “Tavuklu Sezar Salata” yazacak. Sistem ChatGPT’ye istek atacak ve şu alanları otomatik öneri olarak dolduracak:
+
+Ürün açıklaması
+Daha profesyonel menü açıklaması
+İçindekiler
+Muhtemel alerjenler
+Kalori tahmini
+Enerji değeri
+Protein / karbonhidrat / yağ tahmini
+4 dilde çeviri
+Kısa satış odaklı açıklama
+
+ChatGPT’den gelen veriler doğrudan kaydedilmesin. Önce admin panelindeki inputlara otomatik yerleşsin, admin isterse düzenleyip kaydetsin. Çünkü kalori, alerjen ve enerji değerleri kritik bilgiler olduğu için admin son kontrolü yapabilmeli.
+
+ChatGPT entegrasyonu için OpenAI API kullanılacak şekilde yapı kur. API yine veritabanı üzerinden alınmalı, admin panelde onu ekleme yeri yaparsın.
+
+ChatGPT çıktısı mümkünse JSON formatında alınmalı ve backend tarafında parse edilerek ilgili inputlara yerleştirilmeli. Hata durumunda admin panelinde anlaşılır hata mesajı gösterilmeli.
+
+Dil Yapısı
+Sistem 4 dili desteklemeli. Her ürün için şu alanlar dil bazlı olmalı:
+
+Ürün adı
+Ürün açıklaması
+İçindekiler
+Alerjen açıklaması
+Özel not
+
+Kategori isimleri de 4 dil desteklemeli.
+
+Admin panelde her ürün için sekmeli dil yapısı olabilir. Örneğin: TR / EN / RU / AR tabları. Admin her dile manuel giriş yapabilmeli. ChatGPT butonu ile bu alanları otomatik doldurabilmeli.
+
+Tasarım İsteği
+Tasarım kesinlikle sıradan admin paneli gibi durmasın. Premium restoranlara satılabilecek seviyede olmalı. Arayüz sade, kaliteli, hızlı ve mobil uyumlu olmalı. Renk paleti modern olmalı. Öneri olarak koyu zemin, krem/beyaz yazılar, altın veya sıcak vurgu renkleri kullanılabilir. Ancak göz yormamalı.
+
+Müşteri menü tarafında:
+
+Büyük hero alanı
+Restoran logosu
+Şık kategori geçişleri
+Ürün kartları
+Ürün detay modalı veya detay sayfası
+Alerjen ikonları
+Kalori/enerji mini bilgi kartları
+Dil seçici
+Mobilde çok iyi deneyim
+
+Admin panel tarafında:
+
+Sol menü
+Modern dashboard kartları
+Grafikler
+Tablo/listeler
+Drag & drop sıralama
+Modal veya ayrı sayfada ürün ekleme
+Temiz, kurumsal ve premium görünüm
+
+Veritabanı
+PostgreSQL üzerinde düzgün ilişkisel yapı kur. En az şu mantıkta tablolar olsun:
+
+users
+restaurants veya settings
+languages
+categories
+category_translations
+products
+product_translations
+product_nutrition
+product_allergens
+product_views
+menu_views
+ai_generation_logs
+
+Her ürün görüntülendiğinde product_views tablosuna kayıt atılmalı. Menü açıldığında menu_views tablosuna kayıt atılmalı. Böylece admin panelinde istatistikler gösterilebilmeli.
+
+Teknik Beklentiler
+
+Full responsive olmalı.
+PostgreSQL bağlantısı düzgün kurulmalı.
+Backend ve frontend yapısı temiz olmalı.
+Kod modüler olmalı.
+Admin panel güvenli girişe sahip olmalı.
+Ürün görselleri yüklenebilir olmalı.
+Eksik görsel varsa şık placeholder kullanılmalı.
+Boş veri durumları güzel tasarlanmalı.
+Loading state, error state ve success bildirimleri olmalı.
+SEO uyumlu public menü sayfası olmalı.
+QR ile açılacak public URL yapısı olmalı.
+Sistem ileride çoklu restoran desteğine uygun genişletilebilir yazılmalı.
+
+Önemli Notlar
+Bu sistem demo gibi değil, gerçek müşteriye satılabilecek kaliteli bir SaaS / QR Menü ürünü gibi hazırlanmalı. Tasarım kalitesi çok önemli. Basit tablo ve form görünümünden kaçın. Her ekran modern, sade ve premium hissettirmeli.
+
+Kalori, alerjen ve enerji değerleri ChatGPT ile tahmini üretileceği için admin tarafında “Bu bilgiler yapay zeka tarafından oluşturulmuştur, lütfen yayınlamadan önce kontrol edin.” uyarısı gösterilmeli.
+
+İlk etapta çalışan bir MVP çıkar ama mimari sonradan büyümeye uygun olsun. Özellikle admin panel, çoklu dil, ChatGPT entegrasyonu, PostgreSQL veri yapısı ve istatistik ekranları sağlam kurulmalı.
