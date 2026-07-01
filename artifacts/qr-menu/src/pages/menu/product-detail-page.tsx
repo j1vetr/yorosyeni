@@ -112,41 +112,23 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Nutrition card */}
+        {/* Energy cards */}
         {(kcal || kj) && (
-          <div
-            className="rounded-2xl p-4 flex items-center gap-4"
-            style={{
-              background: `linear-gradient(135deg, ${accent}18 0%, ${accent}06 100%)`,
-              border: `1px solid ${accent}30`,
-            }}
-          >
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-              style={{ background: `${accent}20` }}
-            >
-              🔥
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1">
-                Enerji Değeri
+          <div className="grid grid-cols-2 gap-3">
+            {kcal && (
+              <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
+                <span className="text-2xl leading-none">🔥</span>
+                <div className="text-2xl font-bold text-white leading-none mt-1">{kcal}</div>
+                <div className="text-[11px] text-white/35 uppercase tracking-widest">kcal · Kalori</div>
               </div>
-              <div className="flex items-baseline gap-3 flex-wrap">
-                {kcal && (
-                  <span className="text-2xl font-bold text-white leading-none">
-                    {kcal}{" "}
-                    <span className="text-sm font-normal text-white/45">kcal</span>
-                  </span>
-                )}
-                {kcal && kj && <span className="text-white/20 text-lg leading-none">·</span>}
-                {kj && (
-                  <span className="text-base font-semibold leading-none" style={{ color: `${accent}CC` }}>
-                    {kj}{" "}
-                    <span className="text-xs font-normal" style={{ color: `${accent}80` }}>kJ</span>
-                  </span>
-                )}
+            )}
+            {kj && (
+              <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
+                <span className="text-2xl leading-none">⚡</span>
+                <div className="text-2xl font-bold text-white leading-none mt-1">{kj}</div>
+                <div className="text-[11px] text-white/35 uppercase tracking-widest">kJ · Enerji</div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -194,23 +176,26 @@ export default function ProductDetailPage() {
 
         {/* Nutrition bars */}
         {nf && (nf.protein || nf.carbs || nf.fat) ? (
-          <div>
-            <h2 className="text-base font-bold text-white mb-4">Besin Değerleri (Porsiyon)</h2>
-            <div className="flex gap-6">
+          <div className="bg-[#141414] rounded-2xl border border-white/5 overflow-hidden">
+            <div className="px-5 pt-5 pb-1">
+              <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest">Besin Değerleri</h2>
+              <p className="text-xs text-white/25 mt-0.5">Porsiyon başına</p>
+            </div>
+            <div className="px-5 pb-5 pt-4 space-y-4">
               {[
                 { label: "Protein", value: nf.protein },
                 { label: "Karbonhidrat", value: nf.carbs },
                 { label: "Yağ", value: nf.fat },
               ].map(({ label, value }) =>
                 value != null ? (
-                  <div key={label} className="flex-1">
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <span className="text-xs text-white/50">{label}</span>
-                      <span className="text-xs font-bold text-white">{value} g</span>
+                  <div key={label}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-white/60">{label}</span>
+                      <span className="text-sm font-bold text-white">{value} g</span>
                     </div>
                     <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full transition-all"
+                        className="h-full rounded-full"
                         style={{ width: `${(value / maxMacro) * 100}%`, background: accent }}
                       />
                     </div>
