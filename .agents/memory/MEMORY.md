@@ -1,0 +1,4 @@
+- [Orval codegen collision fix](orval-codegen-fix.md) — TS2308 collision: remove `schemas` option + `indexFiles: false` + post-process index.ts in codegen script
+- [QR Menu stack](qr-menu-stack.md) — Full stack: React+Vite qr-menu (port 19636), Express 5 api-server (port 8080), Drizzle+pg, vite proxy `/api` → port 8080
+- [Admin password seeding](admin-seed.md) — Generate bcrypt hash with `node -e "require('/home/runner/workspace/node_modules/.pnpm/bcryptjs@3.0.3/node_modules/bcryptjs/index.js').hash(...)"`; run SQL with `psql "$DATABASE_URL"`
+- [Wouter v3 nested routing](wouter-routing.md) — `{*splat}` wildcard unreliable in nested Switch; flatten all routes at top-level Switch instead

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "QR Menü Sistemi"
+version = "1.0.0"
+id = "artifacts/qr-menu"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19636
+
+[services.development]
+run = "pnpm --filter @workspace/qr-menu run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/qr-menu", "run", "build" ]
+publicDir = "artifacts/qr-menu/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19636"
+BASE_PATH = "/"

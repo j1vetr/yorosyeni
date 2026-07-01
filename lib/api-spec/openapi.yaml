@@ -1,22 +1,37 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: QR Menu System API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: settings
+    description: Restaurant settings
+  - name: languages
+    description: Language management
+  - name: categories
+    description: Category management
+  - name: products
+    description: Product management
+  - name: analytics
+    description: Analytics and statistics
+  - name: ai
+    description: AI-assisted content generation
+  - name: Storage
+    description: Object storage upload and serving endpoints
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +39,629 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # Auth
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current session user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # Settings
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get restaurant settings
+      responses:
+        "200":
+          description: Restaurant settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update restaurant settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Settings"
+
+  # Languages
+  /languages:
+    get:
+      operationId: listLanguages
+      tags: [languages]
+      summary: List all languages
+      responses:
+        "200":
+          description: List of languages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Language"
+    post:
+      operationId: createLanguage
+      tags: [languages]
+      summary: Create a language
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LanguageInput"
+      responses:
+        "201":
+          description: Created language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Language"
+
+  /languages/{id}:
+    patch:
+      operationId: updateLanguage
+      tags: [languages]
+      summary: Update a language
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LanguageUpdate"
+      responses:
+        "200":
+          description: Updated language
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Language"
+    delete:
+      operationId: deleteLanguage
+      tags: [languages]
+      summary: Delete a language
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # Categories
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List categories
+      parameters:
+        - name: activeOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of categories with translations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryWithTranslations"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryWithTranslations"
+
+  /categories/{id}:
+    get:
+      operationId: getCategory
+      tags: [categories]
+      summary: Get a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Category with translations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryWithTranslations"
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryWithTranslations"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /categories/reorder:
+    post:
+      operationId: reorderCategories
+      tags: [categories]
+      summary: Reorder categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderInput"
+      responses:
+        "200":
+          description: Reordered
+
+  # Products
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List products
+      parameters:
+        - name: categoryId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: activeOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of products with full data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductFull"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductFull"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product with full data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductFull"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductFull"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /products/reorder:
+    post:
+      operationId: reorderProducts
+      tags: [products]
+      summary: Reorder products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderInput"
+      responses:
+        "200":
+          description: Reordered
+
+  /products/{id}/view:
+    post:
+      operationId: trackProductView
+      tags: [products]
+      summary: Record a product view
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewEventInput"
+      responses:
+        "200":
+          description: Recorded
+
+  # Public menu
+  /menu/{slug}:
+    get:
+      operationId: fetchPublicMenu
+      tags: [products]
+      summary: Get full public menu for a restaurant slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: lang
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public menu data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicMenu"
+
+  /menu/{slug}/view:
+    post:
+      operationId: trackMenuView
+      tags: [products]
+      summary: Record a menu view
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ViewEventInput"
+      responses:
+        "200":
+          description: Recorded
+
+  # Analytics
+  /analytics/dashboard:
+    get:
+      operationId: getDashboard
+      tags: [analytics]
+      summary: Get dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /analytics/views:
+    get:
+      operationId: getViewTimeseries
+      tags: [analytics]
+      summary: Get view timeseries data
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+      responses:
+        "200":
+          description: Timeseries data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimeseriesPoint"
+
+  /analytics/top-products:
+    get:
+      operationId: getTopProducts
+      tags: [analytics]
+      summary: Get top viewed products
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Top products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopProduct"
+
+  /analytics/language-breakdown:
+    get:
+      operationId: getLanguageBreakdown
+      tags: [analytics]
+      summary: Get view breakdown by language
+      responses:
+        "200":
+          description: Language breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LanguageStats"
+
+  # AI
+  /ai/generate:
+    post:
+      operationId: generateAiContent
+      tags: [ai]
+      summary: Generate AI content suggestions for a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiGenerateInput"
+      responses:
+        "200":
+          description: AI-generated suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiGenerateResult"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # Object Storage
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Failed to generate URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      summary: Serve a public asset
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +669,498 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+
+    Settings:
+      type: object
+      required: [id, restaurantName, slug]
+      properties:
+        id:
+          type: integer
+        restaurantName:
+          type: string
+        slug:
+          type: string
+        logoPath:
+          type: ["string", "null"]
+        heroImagePath:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        currency:
+          type: string
+        openaiApiKey:
+          type: ["string", "null"]
+
+    SettingsUpdate:
+      type: object
+      properties:
+        restaurantName:
+          type: string
+        slug:
+          type: string
+        logoPath:
+          type: ["string", "null"]
+        heroImagePath:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        currency:
+          type: string
+        openaiApiKey:
+          type: ["string", "null"]
+
+    Language:
+      type: object
+      required: [id, code, name, isDefault, isActive, sortOrder]
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    LanguageInput:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    LanguageUpdate:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        isDefault:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    CategoryTranslation:
+      type: object
+      required: [id, categoryId, languageCode, name]
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: integer
+        languageCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    CategoryTranslationInput:
+      type: object
+      required: [languageCode, name]
+      properties:
+        languageCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    CategoryWithTranslations:
+      type: object
+      required: [id, sortOrder, isActive, translations]
+      properties:
+        id:
+          type: integer
+        imagePath:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTranslation"
+
+    CategoryInput:
+      type: object
+      required: [translations]
+      properties:
+        imagePath:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTranslationInput"
+
+    CategoryUpdate:
+      type: object
+      properties:
+        imagePath:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTranslationInput"
+
+    ProductTranslation:
+      type: object
+      required: [id, productId, languageCode, name]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        languageCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        ingredients:
+          type: ["string", "null"]
+        allergenNote:
+          type: ["string", "null"]
+        specialNote:
+          type: ["string", "null"]
+
+    ProductTranslationInput:
+      type: object
+      required: [languageCode, name]
+      properties:
+        languageCode:
+          type: string
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        ingredients:
+          type: ["string", "null"]
+        allergenNote:
+          type: ["string", "null"]
+        specialNote:
+          type: ["string", "null"]
+
+    ProductNutrition:
+      type: object
+      properties:
+        calories:
+          type: ["number", "null"]
+        energy:
+          type: ["number", "null"]
+        protein:
+          type: ["number", "null"]
+        carbs:
+          type: ["number", "null"]
+        fat:
+          type: ["number", "null"]
+        isAiGenerated:
+          type: boolean
+
+    ProductFull:
+      type: object
+      required: [id, categoryId, price, isActive, sortOrder, translations, allergens, viewCount]
+      properties:
+        id:
+          type: integer
+        categoryId:
+          type: ["integer", "null"]
+        price:
+          type: ["number", "null"]
+        imagePath:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isFeatured:
+          type: boolean
+        sortOrder:
+          type: integer
+        viewCount:
+          type: integer
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductTranslation"
+        nutrition:
+          $ref: "#/components/schemas/ProductNutrition"
+        allergens:
+          type: array
+          items:
+            type: string
+
+    ProductInput:
+      type: object
+      required: [translations]
+      properties:
+        categoryId:
+          type: ["integer", "null"]
+        price:
+          type: ["number", "null"]
+        imagePath:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isFeatured:
+          type: boolean
+        sortOrder:
+          type: integer
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductTranslationInput"
+        nutrition:
+          $ref: "#/components/schemas/ProductNutrition"
+        allergens:
+          type: array
+          items:
+            type: string
+
+    ProductUpdate:
+      type: object
+      properties:
+        categoryId:
+          type: ["integer", "null"]
+        price:
+          type: ["number", "null"]
+        imagePath:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        isFeatured:
+          type: boolean
+        sortOrder:
+          type: integer
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductTranslationInput"
+        nutrition:
+          $ref: "#/components/schemas/ProductNutrition"
+        allergens:
+          type: array
+          items:
+            type: string
+
+    ReorderInput:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+
+    ViewEventInput:
+      type: object
+      properties:
+        languageCode:
+          type: ["string", "null"]
+
+    PublicMenu:
+      type: object
+      required: [settings, languages, categories]
+      properties:
+        settings:
+          $ref: "#/components/schemas/Settings"
+        languages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Language"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicCategory"
+
+    PublicCategory:
+      type: object
+      required: [id, sortOrder, translations, products]
+      properties:
+        id:
+          type: integer
+        imagePath:
+          type: ["string", "null"]
+        sortOrder:
+          type: integer
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTranslation"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductFull"
+
+    DashboardStats:
+      type: object
+      required: [totalProducts, totalCategories, totalMenuViews, totalProductViews]
+      properties:
+        totalProducts:
+          type: integer
+        totalCategories:
+          type: integer
+        totalMenuViews:
+          type: integer
+        totalProductViews:
+          type: integer
+        activeProducts:
+          type: integer
+        activeCategories:
+          type: integer
+
+    TimeseriesPoint:
+      type: object
+      required: [date, menuViews, productViews]
+      properties:
+        date:
+          type: string
+        menuViews:
+          type: integer
+        productViews:
+          type: integer
+
+    TopProduct:
+      type: object
+      required: [productId, viewCount, name]
+      properties:
+        productId:
+          type: integer
+        viewCount:
+          type: integer
+        name:
+          type: string
+        imagePath:
+          type: ["string", "null"]
+
+    LanguageStats:
+      type: object
+      required: [languageCode, viewCount]
+      properties:
+        languageCode:
+          type: string
+        viewCount:
+          type: integer
+
+    AiGenerateInput:
+      type: object
+      required: [productName]
+      properties:
+        productName:
+          type: string
+        notes:
+          type: ["string", "null"]
+        languages:
+          type: array
+          items:
+            type: string
+
+    AiGenerateResult:
+      type: object
+      properties:
+        translations:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/AiTranslation"
+        allergens:
+          type: array
+          items:
+            type: string
+        nutrition:
+          $ref: "#/components/schemas/ProductNutrition"
+
+    AiTranslation:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        ingredients:
+          type: ["string", "null"]
+        allergenNote:
+          type: ["string", "null"]
+        specialNote:
+          type: ["string", "null"]
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"

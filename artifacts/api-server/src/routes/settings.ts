@@ -1,0 +1,39 @@
+import { Router } from "express";
+import { db } from "../lib/db";
+import { settingsTable } from "@workspace/db/schema";
+import { requireAuth } from "../lib/auth";
+import { eq } from "drizzle-orm";
+
+const router = Router();
+
+async function getSettings() {
+  const rows = await db.select().from(settingsTable).limit(1);
+  return rows[0] ?? null;
+}
+
+router.get("/settings", requireAuth, async (_req, res): Promise<void> => {
+  const settings = await getSettings();
+  if (!settings) {
+    res.status(404).json({ error: "Settings not found" });
+    return;
+  }
+  res.json(settings);
+});
+
+router.put("/settings", requireAuth, async (req, res): Promise<void> => {
+  const existing = await getSettings();
+  const body = req.body;
+  if (existing) {
+    const [updated] = await db
+      .update(settingsTable)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(settingsTable.id, existing.id))
+      .returning();
+    res.json(updated);
+  } else {
+    const [created] = await db.insert(settingsTable).values(body).returning();
+    res.json(created);
+  }
+});
+
+export default router;
