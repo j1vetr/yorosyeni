@@ -426,7 +426,7 @@ function ProductModal({
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-2">
               <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler & İçerik</label>
               <button
                 onClick={handleAiGenerate}
@@ -436,6 +436,12 @@ function ProductModal({
                 <Sparkles className="w-3 h-3" />
                 {aiLoading ? "Üretiliyor..." : "AI ile Doldur"}
               </button>
+            </div>
+            <div className="flex items-start gap-2 mb-3 px-3 py-2 bg-amber-950/40 border border-amber-800/50 rounded-lg">
+              <Sparkles className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-400/90 leading-relaxed">
+                AI tarafından üretilen içerikler hatalı olabilir. Yayınlamadan önce tüm çevirileri ve açıklamaları gözden geçiriniz.
+              </p>
             </div>
             <div className="space-y-5">
               {languages.map((lang) => {

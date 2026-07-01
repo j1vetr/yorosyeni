@@ -38,14 +38,14 @@ router.post("/categories", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.get("/categories/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const full = await getCategoryWithTranslations(id);
   if (!full) { res.status(404).json({ error: "Not found" }); return; }
   res.json(full);
 });
 
 router.patch("/categories/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const { translations, ...catData } = req.body;
   if (Object.keys(catData).length > 0) {
     await db.update(categoriesTable).set(catData).where(eq(categoriesTable.id, id));
@@ -67,7 +67,7 @@ router.patch("/categories/:id", requireAuth, async (req, res): Promise<void> => 
 });
 
 router.delete("/categories/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   await db.delete(categoriesTable).where(eq(categoriesTable.id, id));
   res.status(204).end();
 });

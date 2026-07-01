@@ -162,4 +162,32 @@ router.get("/analytics/language-breakdown", requireAuth, async (_req, res): Prom
   res.json(rows);
 });
 
+router.get("/analytics/lang-timeseries", requireAuth, async (req, res): Promise<void> => {
+  const days = parsePeriodDays(req.query.period as string | undefined);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await db
+    .select({
+      date: sql<string>`DATE(${analyticsEventsTable.createdAt})`.as("date"),
+      languageCode: analyticsEventsTable.languageCode,
+      count: count(),
+    })
+    .from(analyticsEventsTable)
+    .where(and(gte(analyticsEventsTable.createdAt, since), eq(analyticsEventsTable.type, "menu_view")))
+    .groupBy(sql`DATE(${analyticsEventsTable.createdAt})`, analyticsEventsTable.languageCode)
+    .orderBy(sql`DATE(${analyticsEventsTable.createdAt})`);
+
+  const byDate: Record<string, Record<string, number>> = {};
+  for (const row of rows) {
+    if (!byDate[row.date]) byDate[row.date] = {};
+    if (row.languageCode) byDate[row.date][row.languageCode] = row.count;
+  }
+
+  const result = Object.entries(byDate)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, langs]) => ({ date, tr: langs["tr"] ?? 0, en: langs["en"] ?? 0, ru: langs["ru"] ?? 0, ar: langs["ar"] ?? 0 }));
+
+  res.json(result);
+});
+
 export default router;

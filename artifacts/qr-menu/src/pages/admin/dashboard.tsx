@@ -27,6 +27,14 @@ interface TimeseriesRow {
   productViews: number;
 }
 
+interface LangTimeseriesRow {
+  date: string;
+  tr: number;
+  en: number;
+  ru: number;
+  ar: number;
+}
+
 interface TopProduct {
   productId: number;
   name: string;
@@ -41,10 +49,17 @@ interface LangBreakdown {
 }
 
 const LANG_NAMES: Record<string, string> = {
-  tr: "🇹🇷 Türkçe",
-  en: "🇬🇧 İngilizce",
-  ru: "🇷🇺 Rusça",
-  ar: "🇸🇦 Arapça",
+  tr: "🇹🇷 TR",
+  en: "🇬🇧 EN",
+  ru: "🇷🇺 RU",
+  ar: "🇸🇦 AR",
+};
+
+const LANG_COLORS: Record<string, string> = {
+  tr: "#ffffff",
+  en: "#a3a3a3",
+  ru: "#525252",
+  ar: "#737373",
 };
 
 function StatCard({ label, value, icon: Icon, sub }: { label: string; value: number; icon: typeof Eye; sub?: string }) {
@@ -63,6 +78,7 @@ function StatCard({ label, value, icon: Icon, sub }: { label: string; value: num
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesRow[]>([]);
+  const [langTimeseries, setLangTimeseries] = useState<LangTimeseriesRow[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [langBreakdown, setLangBreakdown] = useState<LangBreakdown[]>([]);
   const [period, setPeriod] = useState<"7d" | "30d" | "90d">("7d");
@@ -75,7 +91,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     apiFetch<TimeseriesRow[]>(`/analytics/timeseries?period=${period}`).then(setTimeseries);
+    apiFetch<LangTimeseriesRow[]>(`/analytics/lang-timeseries?period=${period}`).then(setLangTimeseries);
   }, [period]);
+
+  const periodLabel = period === "7d" ? "7 gün" : period === "30d" ? "30 gün" : "90 gün";
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -94,24 +113,26 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Timeseries chart */}
+      {/* Period selector — shared by both charts */}
+      <div className="flex items-center gap-1">
+        {(["7d", "30d", "90d"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setPeriod(p)}
+            className={`px-3 py-1 text-xs rounded-full transition-colors ${
+              period === p ? "bg-white text-black font-semibold" : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            {p === "7d" ? "7 gün" : p === "30d" ? "30 gün" : "90 gün"}
+          </button>
+        ))}
+      </div>
+
+      {/* Genel trend chart */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-sm font-medium text-white uppercase tracking-widest">Görüntüleme Trendi</h2>
-          <div className="flex gap-1">
-            {(["7d", "30d", "90d"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1 text-xs rounded-full transition-colors ${
-                  period === p ? "bg-white text-black font-semibold" : "text-neutral-400 hover:text-white"
-                }`}
-              >
-                {p === "7d" ? "7 gün" : p === "30d" ? "30 gün" : "90 gün"}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-6">
+          Görüntüleme Trendi — {periodLabel}
+        </h2>
         {timeseries.length > 0 ? (
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={timeseries}>
@@ -144,6 +165,51 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      {/* Language-specific timeseries chart */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+        <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-6">
+          Dil Bazlı Menü Görüntüleme — {periodLabel}
+        </h2>
+        {langTimeseries.length > 0 ? (
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={langTimeseries}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#262626" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: "#737373", fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={(v) => v.slice(5)}
+              />
+              <YAxis tick={{ fill: "#737373", fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ backgroundColor: "#171717", border: "1px solid #404040", borderRadius: "8px" }}
+                labelStyle={{ color: "#e5e5e5", fontSize: 12 }}
+                itemStyle={{ fontSize: 12 }}
+              />
+              <Legend
+                wrapperStyle={{ fontSize: 11 }}
+                formatter={(value) => LANG_NAMES[value] ?? value}
+              />
+              {(["tr", "en", "ru", "ar"] as const).map((lang) => (
+                <Line
+                  key={lang}
+                  type="monotone"
+                  dataKey={lang}
+                  stroke={LANG_COLORS[lang]}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-[220px] flex items-center justify-center text-neutral-600 text-sm">
+            Henüz veri yok
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Top products */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
@@ -165,9 +231,9 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Language breakdown */}
+        {/* Language breakdown totals */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-          <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-4">Dil Dağılımı</h2>
+          <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-4">Dil Dağılımı (Toplam)</h2>
           {langBreakdown.length === 0 ? (
             <p className="text-neutral-600 text-sm">Henüz veri yok</p>
           ) : (

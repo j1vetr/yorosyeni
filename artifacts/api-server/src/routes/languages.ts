@@ -17,7 +17,7 @@ router.post("/languages", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.patch("/languages/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   const [updated] = await db
     .update(languagesTable)
     .set(req.body)
@@ -28,7 +28,7 @@ router.patch("/languages/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 router.delete("/languages/:id", requireAuth, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id);
+  const id = parseInt(String(req.params.id));
   await db.delete(languagesTable).where(eq(languagesTable.id, id));
   res.status(204).end();
 });

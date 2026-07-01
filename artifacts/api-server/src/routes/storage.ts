@@ -137,7 +137,7 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
         return;
       }
       const canAccess = await objectStorageService.canAccessObjectEntity({
-        userId: req.session.userId!,
+        userId: String(req.session.userId!),
         objectFile,
         requestedPermission: ObjectPermission.READ,
       });

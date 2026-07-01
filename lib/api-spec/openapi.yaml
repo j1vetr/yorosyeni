@@ -552,6 +552,27 @@ paths:
                 items:
                   $ref: "#/components/schemas/LanguageStats"
 
+  /analytics/lang-timeseries:
+    get:
+      operationId: getLangTimeseries
+      tags: [analytics]
+      summary: Get daily view timeseries broken down by language
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+      responses:
+        "200":
+          description: Language-specific timeseries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LangTimeseriesPoint"
+
   # AI
   /ai/generate:
     post:
@@ -605,6 +626,39 @@ paths:
                 $ref: "#/components/schemas/ErrorEnvelope"
         "500":
           description: Failed to generate URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/uploads/confirm:
+    post:
+      tags: [Storage]
+      operationId: confirmUpload
+      summary: Confirm an upload and set object to public ACL
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmUploadInput"
+      responses:
+        "200":
+          description: Upload confirmed; returns public serving URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmUploadResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -706,9 +760,9 @@ components:
           type: string
         slug:
           type: string
-        logoPath:
+        logoUrl:
           type: ["string", "null"]
-        heroImagePath:
+        heroImageUrl:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
@@ -718,7 +772,7 @@ components:
           type: ["string", "null"]
         currency:
           type: string
-        openaiApiKey:
+        openAiKey:
           type: ["string", "null"]
 
     SettingsUpdate:
@@ -728,9 +782,9 @@ components:
           type: string
         slug:
           type: string
-        logoPath:
+        logoUrl:
           type: ["string", "null"]
-        heroImagePath:
+        heroImageUrl:
           type: ["string", "null"]
         description:
           type: ["string", "null"]
@@ -740,7 +794,7 @@ components:
           type: ["string", "null"]
         currency:
           type: string
-        openaiApiKey:
+        openAiKey:
           type: ["string", "null"]
 
     Language:
@@ -1164,3 +1218,37 @@ components:
           type: string
         metadata:
           $ref: "#/components/schemas/UploadUrlRequest"
+
+    ConfirmUploadInput:
+      type: object
+      required: [objectPath]
+      properties:
+        objectPath:
+          type: string
+          description: The object path returned from the presigned URL request
+
+    ConfirmUploadResponse:
+      type: object
+      required: [servingUrl, objectPath]
+      properties:
+        servingUrl:
+          type: string
+          description: Public URL for serving the uploaded file
+        objectPath:
+          type: string
+
+    LangTimeseriesPoint:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date
+        tr:
+          type: integer
+        en:
+          type: integer
+        ru:
+          type: integer
+        ar:
+          type: integer

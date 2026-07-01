@@ -269,7 +269,7 @@ export default function MenuPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const trackedView = useRef(false);
-  const categoryRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const categoryRefs = useRef<Record<number, HTMLElement | null>>({});
 
   async function loadMenu(language: string) {
     try {

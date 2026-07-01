@@ -85,9 +85,9 @@ Rules:
       return;
     }
 
-    const data = await response.json();
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: { total_tokens?: number } };
     tokensUsed = data.usage?.total_tokens;
-    const content = data.choices?.[0]?.message?.content;
+    const content = data.choices?.[0]?.message?.content ?? "";
     const parsed = JSON.parse(content);
     success = true;
 
