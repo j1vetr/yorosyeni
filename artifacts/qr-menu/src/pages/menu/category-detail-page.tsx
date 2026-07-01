@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { Eye } from "lucide-react";
 import { useMenu, formatPrice } from "@/contexts/menu-context";
 import MenuHeader from "@/components/menu/menu-header";
+import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
 import { apiFetch } from "@/lib/api";
@@ -99,7 +100,7 @@ export default function CategoryDetailPage() {
                     : { color: "rgba(255,255,255,0.5)", borderColor: "rgba(255,255,255,0.1)" }
                 }
               >
-                {f === "all" ? "Tümü" : f}
+                {f === "all" ? "Tümü" : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>
@@ -154,12 +155,7 @@ export default function CategoryDetailPage() {
         </div>
       </div>
 
-      {/* Disclaimer bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A0A]/90 border-t border-white/5 pb-safe">
-        <p className="text-center text-xs text-white/30 italic px-4 py-2">
-          ⓘ Bu menü QR ile görüntülenmektedir. Sipariş verilemez.
-        </p>
-      </div>
+      <BottomNav />
     </div>
     </PageTransition>
   );

@@ -1,12 +1,10 @@
 import { useLocation, Link } from "wouter";
-import { Home, Grid2X2, Users, Globe, Info } from "lucide-react";
+import { Home, Grid2X2, Globe } from "lucide-react";
 
 const tabs = [
   { href: "/", icon: Home, label: "Ana Sayfa" },
   { href: "/categories", icon: Grid2X2, label: "Kategoriler" },
-  { href: "/about", icon: Users, label: "Hakkımızda" },
   { href: "/language", icon: Globe, label: "Dil" },
-  { href: "/info", icon: Info, label: "Bilgi" },
 ];
 
 export default function BottomNav() {
@@ -26,7 +24,7 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
-              className="flex flex-col items-center gap-1 px-3 py-1 min-w-[52px]"
+              className="flex flex-col items-center gap-1 px-5 py-1 min-w-[64px]"
             >
               <Icon
                 className="w-5 h-5 transition-colors"

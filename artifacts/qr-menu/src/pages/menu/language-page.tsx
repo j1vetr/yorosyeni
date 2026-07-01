@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { Check } from "lucide-react";
-import { useMenu, LANG_FLAGS } from "@/contexts/menu-context";
+import { useMenu } from "@/contexts/menu-context";
+import { FlagImg } from "@/components/menu/flag-img";
 import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 
@@ -23,7 +24,6 @@ export default function LanguagePage() {
   return (
     <PageTransition>
     <div className="luna-menu min-h-screen pb-24 relative overflow-hidden">
-      {/* Logo header */}
       <div className="flex flex-col items-center pt-12 pb-8 px-4">
         {menu?.restaurant.logoUrl ? (
           <img src={menu.restaurant.logoUrl} alt={menu.restaurant.name} className="h-12 object-contain mb-2" />
@@ -61,8 +61,8 @@ export default function LanguagePage() {
                     : { borderColor: "rgba(255,255,255,0.08)", background: "transparent" }
                 }
               >
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-2xl flex-shrink-0 bg-white/5">
-                  {LANG_FLAGS[l.code] ?? l.code.toUpperCase()}
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-white/5 overflow-hidden">
+                  <FlagImg code={l.code} size={32} />
                 </div>
                 <span className="flex-1 font-bold text-white text-base">{l.name}</span>
                 <div
@@ -81,7 +81,6 @@ export default function LanguagePage() {
         </div>
       </div>
 
-      {/* Botanical decoration */}
       <div className="absolute bottom-24 right-0 w-48 h-48 pointer-events-none select-none opacity-20">
         <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M180 180 Q140 120 80 80 Q40 50 10 10" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
