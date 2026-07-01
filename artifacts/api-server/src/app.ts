@@ -19,6 +19,12 @@ if (isProd && !sessionSecret) {
   throw new Error("SESSION_SECRET environment variable is required in production");
 }
 
+// Parse explicit origin allowlist once at startup
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ?.split(",")
+  .map((o) => o.trim())
+  .filter(Boolean) ?? [];
+
 const app: Express = express();
 
 app.use(
@@ -38,11 +44,20 @@ app.use(
 app.use(
   cors({
     origin: (origin, callback) => {
+      // Same-origin / server-to-server requests carry no Origin header — always allow
       if (!origin) return callback(null, true);
-      const explicitAllowList = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [];
-      if (explicitAllowList.length > 0) {
-        return callback(null, explicitAllowList.includes(origin));
+
+      // Explicit allowlist always wins
+      if (allowedOrigins.length > 0) {
+        return callback(null, allowedOrigins.includes(origin));
       }
+
+      // Production without an explicit allowlist: fail closed — reject all cross-origin requests
+      if (isProd) {
+        return callback(null, false);
+      }
+
+      // Development only: allow localhost and Replit preview domains for convenience
       if (
         origin.includes("localhost") ||
         origin.includes(".replit.dev") ||
@@ -51,6 +66,7 @@ app.use(
       ) {
         return callback(null, true);
       }
+
       return callback(null, false);
     },
     credentials: true,
@@ -66,10 +82,13 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
+      // SameSite: "lax" is safe because the API and frontend are co-hosted
+      // on the same domain (both served through the Replit proxy).
+      // "none" would require Secure + broad CORS, creating unnecessary exposure.
       secure: isProd,
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: isProd ? "none" : "lax",
+      sameSite: "lax",
     },
   })
 );

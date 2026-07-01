@@ -506,7 +506,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [daily, weekly, monthly]
+            enum: [7d, 30d, 90d]
       responses:
         "200":
           description: Timeseries data
