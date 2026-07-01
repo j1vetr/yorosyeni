@@ -7,31 +7,33 @@ import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
 import { apiFetch } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 type TagSource = { allergens?: string[] | null; allergenNote?: string | null; specialNote?: string | null };
 
 function deriveProductTags(p: TagSource): string[] {
   const tags = new Set<string>();
   for (const a of p.allergens ?? []) {
-    const t = a.trim();
-    if (t.length > 1 && t.length < 30) tags.add(t);
+    const tg = a.trim();
+    if (tg.length > 1 && tg.length < 30) tags.add(tg);
   }
   for (const field of [p.allergenNote, p.specialNote]) {
     if (!field) continue;
     for (const part of field.split(/[,;\/]/)) {
-      const t = part.trim();
-      if (t.length > 1 && t.length < 30) tags.add(t);
+      const tg = part.trim();
+      if (tg.length > 1 && tg.length < 30) tags.add(tg);
     }
   }
   return Array.from(tags);
 }
 
 export default function CategoryDetailPage() {
-  const { menu, accent, loading, error, reload } = useMenu();
+  const { menu, lang, accent, loading, error, reload } = useMenu();
   const [, params] = useRoute("/categories/:categorySlug");
   const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState("all");
   const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
+  const tr = t(lang);
 
   const categorySlug = params?.categorySlug;
   const category = menu?.categories.find((c) => c.slug === categorySlug);
@@ -48,7 +50,7 @@ export default function CategoryDetailPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
         <div className="text-center text-white/40">
           <div className="text-4xl mb-3">🍽️</div>
-          <p>Kategori bulunamadı</p>
+          <p>{tr.categoryNotFound}</p>
         </div>
       </div>
     );
@@ -75,7 +77,7 @@ export default function CategoryDetailPage() {
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs mb-3">
           <button onClick={() => navigate("/")} className="hover:opacity-80 transition-opacity" style={{ color: accent }}>
-            Ana Sayfa
+            {tr.home}
           </button>
           <span className="text-white/30">›</span>
           <span style={{ color: accent }}>{category.name}</span>
@@ -100,7 +102,7 @@ export default function CategoryDetailPage() {
                     : { color: "rgba(255,255,255,0.5)", borderColor: "rgba(255,255,255,0.1)" }
                 }
               >
-                {f === "all" ? "Tümü" : f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === "all" ? tr.all : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>
@@ -145,7 +147,7 @@ export default function CategoryDetailPage() {
                       {formatPrice(product.price, product.currency)}
                     </span>
                     <span className="text-xs font-medium" style={{ color: accent }}>
-                      Detayı Gör →
+                      {tr.viewDetails}
                     </span>
                   </div>
                 </div>
@@ -155,7 +157,12 @@ export default function CategoryDetailPage() {
         </div>
       </div>
 
-      <BottomNav />
+      {/* Disclaimer bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A0A]/90 border-t border-white/5 pb-safe">
+        <p className="text-center text-xs text-white/30 italic px-4 py-2">
+          {tr.qrDisclaimer}
+        </p>
+      </div>
     </div>
     </PageTransition>
   );

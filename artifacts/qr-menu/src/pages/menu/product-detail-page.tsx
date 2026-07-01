@@ -6,6 +6,7 @@ import MenuHeader from "@/components/menu/menu-header";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
 import { apiFetch } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 const ALLERGEN_ICONS: Record<string, string> = {
   gluten: "🌾",
@@ -21,8 +22,8 @@ const ALLERGEN_ICONS: Record<string, string> = {
   hardal: "🌻",
   susam: "🫙",
   kükürt: "⚗️",
-  "lupin": "🌼",
-  "molluscs": "🦪",
+  lupin: "🌼",
+  molluscs: "🦪",
 };
 
 function getAllergenIcon(allergen: string): string {
@@ -39,6 +40,7 @@ export default function ProductDetailPage() {
   const [, navigate] = useLocation();
   const [ingredientsOpen, setIngredientsOpen] = useState(false);
   const tracked = { current: false };
+  const tr = t(lang);
 
   const categorySlug = params?.categorySlug;
   const productSlug = params?.productSlug;
@@ -64,7 +66,7 @@ export default function ProductDetailPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
         <div className="text-center text-white/40">
           <div className="text-4xl mb-3">🍽️</div>
-          <p>Ürün bulunamadı</p>
+          <p>{tr.productNotFound}</p>
         </div>
       </div>
     );
@@ -73,6 +75,8 @@ export default function ProductDetailPage() {
   const nf = product.nutritionFacts;
   const kcal = product.calories ?? nf?.energy;
   const kj = kcal ? Math.round(kcal * 4.184) : null;
+
+  const isChefSpecial = product.specialNote?.toLowerCase().includes("şef") || product.allergenNote?.toLowerCase().includes("özel");
 
   const maxMacro = Math.max(nf?.protein ?? 0, nf?.carbs ?? 0, nf?.fat ?? 0, 1);
 
@@ -94,6 +98,16 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="max-w-xl mx-auto px-4 pt-4 space-y-5">
+        {/* Chef badge */}
+        {isChefSpecial && (
+          <div
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+            style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
+          >
+            👨‍🍳 {tr.chefsSpecial.replace("☆ ", "")}
+          </div>
+        )}
+
         {/* Title + Price */}
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-2">{product.name}</h1>
@@ -119,14 +133,14 @@ export default function ProductDetailPage() {
               <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
                 <span className="text-2xl leading-none">🔥</span>
                 <div className="text-2xl font-bold text-white leading-none mt-1">{kcal}</div>
-                <div className="text-[11px] text-white/35 uppercase tracking-widest">kcal · Kalori</div>
+                <div className="text-[11px] text-white/35 uppercase tracking-widest">kcal · {tr.calories}</div>
               </div>
             )}
             {kj && (
               <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
                 <span className="text-2xl leading-none">⚡</span>
                 <div className="text-2xl font-bold text-white leading-none mt-1">{kj}</div>
-                <div className="text-[11px] text-white/35 uppercase tracking-widest">kJ · Enerji</div>
+                <div className="text-[11px] text-white/35 uppercase tracking-widest">kJ · {tr.energy}</div>
               </div>
             )}
           </div>
@@ -135,7 +149,7 @@ export default function ProductDetailPage() {
         {/* Allergens */}
         {product.allergens && product.allergens.length > 0 && (
           <div>
-            <h2 className="text-base font-bold text-white mb-3">Alerjenler</h2>
+            <h2 className="text-base font-bold text-white mb-3">{tr.allergens}</h2>
             <div className="grid grid-cols-4 gap-3">
               {product.allergens.map((a) => (
                 <div key={a} className="flex flex-col items-center gap-1">
@@ -159,7 +173,7 @@ export default function ProductDetailPage() {
               className="w-full flex items-center justify-between px-4 py-4"
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white">İçindekiler</span>
+                <span className="text-sm font-bold text-white">{tr.ingredients}</span>
               </div>
               <ChevronDown
                 className="w-4 h-4 text-white/40 transition-transform"
@@ -178,14 +192,13 @@ export default function ProductDetailPage() {
         {nf && (nf.protein || nf.carbs || nf.fat) ? (
           <div className="bg-[#141414] rounded-2xl border border-white/5 overflow-hidden">
             <div className="px-5 pt-5 pb-1">
-              <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest">Besin Değerleri</h2>
-              <p className="text-xs text-white/25 mt-0.5">Porsiyon başına</p>
+              <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest">{tr.nutritionFacts}</h2>
             </div>
             <div className="px-5 pb-5 pt-4 space-y-4">
               {[
-                { label: "Protein", value: nf.protein },
-                { label: "Karbonhidrat", value: nf.carbs },
-                { label: "Yağ", value: nf.fat },
+                { label: tr.protein, value: nf.protein },
+                { label: tr.carbs, value: nf.carbs },
+                { label: tr.fat, value: nf.fat },
               ].map(({ label, value }) =>
                 value != null ? (
                   <div key={label}>
@@ -206,15 +219,32 @@ export default function ProductDetailPage() {
           </div>
         ) : null}
 
+        {/* Chef's note */}
+        {product.specialNote && (
+          <div className="bg-[#141414] rounded-2xl p-4 border border-white/5">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg" style={{ color: accent }}>❝</span>
+              <span className="text-sm font-bold" style={{ color: accent }}>{tr.chefsNote}</span>
+            </div>
+            <p className="text-sm text-white/60 italic leading-relaxed">{product.specialNote}</p>
+            <p className="text-right text-xs italic mt-2" style={{ color: `${accent}99` }}>
+              — {tr.ourTeam}
+            </p>
+          </div>
+        )}
+
         {/* Back button */}
         <button
           onClick={() => navigate(`/categories/${categorySlug}`)}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border text-sm font-bold tracking-widest transition-colors hover:bg-white/5"
           style={{ borderColor: `${accent}44`, color: accent }}
         >
-          ← MENÜYE DÖN
+          {tr.backToMenu}
         </button>
 
+        <p className="text-center text-xs text-white/30 italic">
+          {tr.infoOnly}
+        </p>
       </div>
     </div>
     </PageTransition>

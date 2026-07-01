@@ -4,10 +4,12 @@ import { useMenu } from "@/contexts/menu-context";
 import { FlagImg } from "@/components/menu/flag-img";
 import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
+import { t } from "@/lib/i18n";
 
 export default function LanguagePage() {
   const { menu, lang, setLang, accent } = useMenu();
   const [, navigate] = useLocation();
+  const tr = t(lang);
 
   const languages = menu?.languages ?? [
     { code: "tr", name: "Türkçe" },
@@ -41,10 +43,10 @@ export default function LanguagePage() {
 
       <div className="max-w-xl mx-auto px-4">
         <h1 className="text-4xl font-bold text-white tracking-tight mb-3 text-center">
-          Dil Seçimi
+          {tr.languageTitle}
         </h1>
         <p className="text-sm text-white/50 text-center mb-8 leading-relaxed">
-          Lütfen menüyü görüntülemek istediğiniz dili seçin.
+          {tr.languageSub}
         </p>
 
         <div className="space-y-3">

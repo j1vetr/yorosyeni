@@ -7,6 +7,7 @@ import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
 import { apiFetch } from "@/lib/api";
+import { t } from "@/lib/i18n";
 
 const CATEGORY_ICONS: Record<string, string> = {
   default: "🍽️",
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [activeSlug, setActiveSlug] = useState<string>("all");
   const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
   const trackedRef = { current: false };
+  const tr = t(lang);
 
   useEffect(() => {
     apiFetch<Record<number, number>>("/analytics/product-views/public").then(setViewCounts).catch(() => {});
@@ -77,17 +79,17 @@ export default function HomePage() {
         <div className="flex gap-4 items-start">
           <div className="flex-1">
             <p className="text-sm font-medium mb-2" style={{ color: accent }}>
-              Hoş Geldiniz 👋
+              {tr.welcome}
             </p>
             <h1 className="text-3xl font-bold text-white leading-tight tracking-tight mb-3">
-              {r.name ? `${r.name}'a hoş geldiniz.` : "Lezzetin en özel hâline hoş geldiniz."}
+              {r.name ? tr.welcomeTagline(r.name) : tr.welcomeSub}
             </h1>
             {r.description && (
               <p className="text-sm text-white/50 mb-4 leading-relaxed">{r.description}</p>
             )}
             {!r.description && (
               <p className="text-sm text-white/50 mb-4">
-                Özenle seçilmiş lezzetlerimizi keşfedin.
+                {tr.welcomeSub}
               </p>
             )}
             <button
@@ -95,7 +97,7 @@ export default function HomePage() {
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border text-sm font-semibold tracking-wide transition-colors hover:bg-white/5"
               style={{ borderColor: accent, color: accent }}
             >
-              MENÜYÜ KEŞFET <ArrowRight className="w-4 h-4" />
+              {tr.exploreMenu} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
           {r.heroImageUrl && (
@@ -120,7 +122,7 @@ export default function HomePage() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Lezzet, malzeme veya kategori ara..."
+            placeholder={tr.searchPlaceholder}
             className="w-full bg-white/5 border border-white/8 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-colors"
           />
         </div>
@@ -147,7 +149,7 @@ export default function HomePage() {
           </div>
         )}
         {search && searchResults.length === 0 && (
-          <p className="mt-3 text-center text-sm text-white/40">Sonuç bulunamadı</p>
+          <p className="mt-3 text-center text-sm text-white/40">{tr.noResults}</p>
         )}
       </div>
 
@@ -171,7 +173,7 @@ export default function HomePage() {
               className="text-[10px] font-medium"
               style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.5)" }}
             >
-              Tümü
+              {tr.all}
             </span>
             {activeSlug === "all" && (
               <div className="w-4 h-0.5 rounded-full" style={{ background: accent }} />
@@ -212,27 +214,27 @@ export default function HomePage() {
       {/* Featured */}
       <div className="px-4 max-w-xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">Öne Çıkanlar</h2>
+          <h2 className="text-xl font-bold text-white">{tr.featured}</h2>
           <button
             onClick={() => navigate("/categories")}
             className="flex items-center gap-1 text-sm font-medium"
             style={{ color: accent }}
           >
-            Tümünü Gör <ArrowRight className="w-3.5 h-3.5" />
+            {tr.seeAll} <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {featuredProducts.length === 0 && allProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             {allProducts.slice(0, 6).map((p, i) => (
-              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} chefsSpecialLabel={tr.chefsSpecial} />
             ))}
           </div>
         )}
         {featuredProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             {featuredProducts.map((p, i) => (
-              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} chefsSpecialLabel={tr.chefsSpecial} />
             ))}
           </div>
         )}
@@ -249,13 +251,14 @@ function ProductCard({
   accent,
   isFirst,
   navigate,
-  viewCount,
+  chefsSpecialLabel,
 }: {
   product: { id: number; slug: string; name: string; description?: string; price: number; currency: string; imageUrl?: string; categorySlug: string };
   accent: string;
   isFirst: boolean;
   navigate: (to: string) => void;
   viewCount?: number;
+  chefsSpecialLabel: string;
 }) {
   return (
     <button
@@ -267,7 +270,7 @@ function ProductCard({
           className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold"
           style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
         >
-          ☆ Şefin Önerisi
+          {chefsSpecialLabel}
         </div>
       )}
       <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden">

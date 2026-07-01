@@ -5,6 +5,7 @@ import MenuHeader from "@/components/menu/menu-header";
 import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
+import { t } from "@/lib/i18n";
 
 const CATEGORY_ICONS: Record<string, string> = {
   baslangiclar: "🥗",
@@ -31,8 +32,9 @@ function getCategoryIcon(slug: string): string {
 }
 
 export default function CategoriesPage() {
-  const { menu, accent, loading, error, reload } = useMenu();
+  const { menu, lang, accent, loading, error, reload } = useMenu();
   const [, navigate] = useLocation();
+  const tr = t(lang);
 
   if (loading) return <MenuLoadingScreen accent={accent} />;
   if (error) return <MenuErrorScreen error={error} reload={reload} accent={accent} />;
@@ -44,10 +46,10 @@ export default function CategoriesPage() {
       <MenuHeader showBack />
 
       <div className="max-w-xl mx-auto px-4 pt-6">
-        <h1 className="text-4xl font-bold text-white tracking-tight mb-2">Kategoriler</h1>
+        <h1 className="text-4xl font-bold text-white tracking-tight mb-2">{tr.categories}</h1>
         <div className="w-12 h-0.5 mb-4 rounded-full" style={{ background: accent }} />
         <p className="text-sm text-white/50 mb-6 leading-relaxed">
-          Menümüzü keşfedin. Her tabak, özenle seçilmiş malzemelerle hazırlandı.
+          {tr.categoriesSubtitle}
         </p>
 
         <div className="space-y-3">
@@ -73,7 +75,7 @@ export default function CategoriesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-white text-base">{cat.name}</div>
                   <div className="text-xs text-white/40 mt-0.5">
-                    {cat.products.length} seçenek
+                    {tr.items(cat.products.length)}
                   </div>
                 </div>
 
