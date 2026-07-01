@@ -55,7 +55,26 @@ function formatPrice(price: number, currency: string) {
   return `${sym}${price.toFixed(2)}`;
 }
 
-function NutritionRow({ icon: Icon, label, value, unit }: { icon: typeof Flame; label: string; value?: number; unit: string }) {
+function withOpacity(hex: string, opacity: number): string {
+  const clean = hex.startsWith("#") ? hex : `#${hex}`;
+  const alpha = Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, "0")
+    .toUpperCase();
+  return `${clean}${alpha}`;
+}
+
+function NutritionRow({
+  icon: Icon,
+  label,
+  value,
+  unit,
+}: {
+  icon: typeof Flame;
+  label: string;
+  value?: number;
+  unit: string;
+}) {
   if (value == null) return null;
   return (
     <div className="flex items-center justify-between py-1.5 border-b border-neutral-100 last:border-0">
@@ -63,7 +82,9 @@ function NutritionRow({ icon: Icon, label, value, unit }: { icon: typeof Flame; 
         <Icon className="w-3 h-3" />
         {label}
       </div>
-      <span className="text-xs font-medium text-neutral-800">{value} {unit}</span>
+      <span className="text-xs font-medium text-neutral-800">
+        {value} {unit}
+      </span>
     </div>
   );
 }
@@ -71,10 +92,12 @@ function NutritionRow({ icon: Icon, label, value, unit }: { icon: typeof Flame; 
 function ProductDetailModal({
   product,
   lang,
+  primaryColor,
   onClose,
 }: {
   product: ProductData;
   lang: string;
+  primaryColor: string;
   onClose: () => void;
 }) {
   const isRtl = RTL_LANGS.includes(lang);
@@ -87,7 +110,9 @@ function ProductDetailModal({
       body: JSON.stringify({ lang }),
     }).catch(() => {});
 
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [product.id]);
@@ -95,13 +120,19 @@ function ProductDetailModal({
   return (
     <div
       className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       dir={isRtl ? "rtl" : "ltr"}
     >
       <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {product.imageUrl && (
           <div className="relative">
-            <img src={product.imageUrl} alt={product.name} className="w-full h-52 object-cover rounded-t-3xl sm:rounded-t-2xl" />
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="w-full h-52 object-cover rounded-t-3xl sm:rounded-t-2xl"
+            />
             <button
               onClick={onClose}
               className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow"
@@ -124,7 +155,7 @@ function ProductDetailModal({
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-xl font-bold text-neutral-900 leading-tight">{product.name}</h2>
             <div className="text-right flex-shrink-0">
-              <span className="text-xl font-bold text-neutral-900">
+              <span className="text-xl font-bold" style={{ color: primaryColor }}>
                 {formatPrice(product.price, product.currency)}
               </span>
               {product.calories != null && (
@@ -140,7 +171,13 @@ function ProductDetailModal({
           {product.ingredients && (
             <div>
               <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-1">
-                {lang === "tr" ? "İçindekiler" : lang === "ru" ? "Ингредиенты" : lang === "ar" ? "المكونات" : "Ingredients"}
+                {lang === "tr"
+                  ? "İçindekiler"
+                  : lang === "ru"
+                  ? "Ингредиенты"
+                  : lang === "ar"
+                  ? "المكونات"
+                  : "Ingredients"}
               </h3>
               <p className="text-sm text-neutral-700">{product.ingredients}</p>
             </div>
@@ -149,13 +186,39 @@ function ProductDetailModal({
           {hasNutrition && (
             <div>
               <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">
-                {lang === "tr" ? "Besin Değerleri" : lang === "ru" ? "Пищевая ценность" : lang === "ar" ? "القيمة الغذائية" : "Nutrition Facts"}
+                {lang === "tr"
+                  ? "Besin Değerleri"
+                  : lang === "ru"
+                  ? "Пищевая ценность"
+                  : lang === "ar"
+                  ? "القيمة الغذائية"
+                  : "Nutrition Facts"}
               </h3>
               <div className="bg-neutral-50 rounded-xl px-4 py-1">
-                <NutritionRow icon={Flame} label={lang === "tr" ? "Enerji" : "Energy"} value={nf?.energy} unit="kcal" />
-                <NutritionRow icon={Beef} label={lang === "tr" ? "Protein" : "Protein"} value={nf?.protein} unit="g" />
-                <NutritionRow icon={Wheat} label={lang === "tr" ? "Karbonhidrat" : "Carbs"} value={nf?.carbs} unit="g" />
-                <NutritionRow icon={Droplet} label={lang === "tr" ? "Yağ" : "Fat"} value={nf?.fat} unit="g" />
+                <NutritionRow
+                  icon={Flame}
+                  label={lang === "tr" ? "Enerji" : "Energy"}
+                  value={nf?.energy}
+                  unit="kcal"
+                />
+                <NutritionRow
+                  icon={Beef}
+                  label={lang === "tr" ? "Protein" : "Protein"}
+                  value={nf?.protein}
+                  unit="g"
+                />
+                <NutritionRow
+                  icon={Wheat}
+                  label={lang === "tr" ? "Karbonhidrat" : "Carbs"}
+                  value={nf?.carbs}
+                  unit="g"
+                />
+                <NutritionRow
+                  icon={Droplet}
+                  label={lang === "tr" ? "Yağ" : "Fat"}
+                  value={nf?.fat}
+                  unit="g"
+                />
               </div>
             </div>
           )}
@@ -163,25 +226,49 @@ function ProductDetailModal({
           {product.allergens && product.allergens.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">
-                {lang === "tr" ? "Alerjenler" : lang === "ru" ? "Аллергены" : lang === "ar" ? "مسببات الحساسية" : "Allergens"}
+                {lang === "tr"
+                  ? "Alerjenler"
+                  : lang === "ru"
+                  ? "Аллергены"
+                  : lang === "ar"
+                  ? "مسببات الحساسية"
+                  : "Allergens"}
               </h3>
               <div className="flex items-start gap-1.5 flex-wrap">
-                <Info className="w-3.5 h-3.5 text-amber-500 mt-0.5 flex-shrink-0" />
+                <Info
+                  className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+                  style={{ color: primaryColor }}
+                />
                 {product.allergens.map((a) => (
-                  <span key={a} className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full border border-amber-200">
+                  <span
+                    key={a}
+                    className="text-xs px-2 py-0.5 rounded-full border text-sm font-medium"
+                    style={{
+                      color: primaryColor,
+                      backgroundColor: withOpacity(primaryColor, 0.08),
+                      borderColor: withOpacity(primaryColor, 0.3),
+                    }}
+                  >
                     {a}
                   </span>
                 ))}
               </div>
               {product.allergenNote && (
-                <p className="text-xs text-amber-700 mt-1.5">{product.allergenNote}</p>
+                <p className="text-xs mt-1.5" style={{ color: primaryColor }}>
+                  {product.allergenNote}
+                </p>
               )}
             </div>
           )}
 
           {product.specialNote && (
-            <div className="bg-neutral-50 rounded-xl p-3">
-              <p className="text-xs text-neutral-500 italic">✦ {product.specialNote}</p>
+            <div
+              className="rounded-xl p-3"
+              style={{ backgroundColor: withOpacity(primaryColor, 0.06) }}
+            >
+              <p className="text-xs italic" style={{ color: withOpacity(primaryColor, 0.85) }}>
+                ✦ {product.specialNote}
+              </p>
             </div>
           )}
         </div>
@@ -193,9 +280,11 @@ function ProductDetailModal({
 function ProductCard({
   product,
   lang,
+  primaryColor,
 }: {
   product: ProductData;
   lang: string;
+  primaryColor: string;
 }) {
   const [showModal, setShowModal] = useState(false);
 
@@ -204,7 +293,8 @@ function ProductCard({
     product.allergenNote ||
     product.specialNote ||
     (product.allergens && product.allergens.length > 0) ||
-    (product.nutritionFacts && Object.values(product.nutritionFacts).some((v) => v != null && v > 0));
+    (product.nutritionFacts &&
+      Object.values(product.nutritionFacts).some((v) => v != null && v > 0));
 
   return (
     <>
@@ -222,16 +312,22 @@ function ProductCard({
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-neutral-900 text-sm leading-snug">{product.name}</h3>
+              <h3 className="font-semibold text-neutral-900 text-sm leading-snug">
+                {product.name}
+              </h3>
               {product.calories != null && (
-                <span className="text-xs text-neutral-400 flex-shrink-0">{product.calories} kcal</span>
+                <span className="text-xs text-neutral-400 flex-shrink-0">
+                  {product.calories} kcal
+                </span>
               )}
             </div>
             {product.description && (
-              <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{product.description}</p>
+              <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">
+                {product.description}
+              </p>
             )}
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="font-bold text-neutral-900 text-sm">
+              <span className="font-bold text-sm" style={{ color: primaryColor }}>
                 {formatPrice(product.price, product.currency)}
               </span>
               {hasDetail && (
@@ -248,6 +344,7 @@ function ProductCard({
         <ProductDetailModal
           product={product}
           lang={lang}
+          primaryColor={primaryColor}
           onClose={() => setShowModal(false)}
         />
       )}
@@ -270,8 +367,12 @@ export default function MenuPage() {
       setMenu(data);
       if (data.categories[0]) setActiveCategory(data.categories[0].id);
 
-      document.title = data.restaurant.name ? `${data.restaurant.name} — Menü` : "Menü";
-      const metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+      document.title = data.restaurant.name
+        ? `${data.restaurant.name} — Menü`
+        : "Menü";
+      const metaDesc = document.querySelector<HTMLMetaElement>(
+        'meta[name="description"]'
+      );
       if (metaDesc) metaDesc.content = `${data.restaurant.name} dijital menüsü`;
     } catch {
       setError("Menü yüklenemedi");
@@ -316,11 +417,15 @@ export default function MenuPage() {
   }
 
   const isRtl = RTL_LANGS.includes(lang);
+  const primaryColor = menu?.restaurant.primaryColor ?? "#C9A84C";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-5 h-5 rounded-full border-2 border-neutral-300 border-t-neutral-800 animate-spin" />
+        <div
+          className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+          style={{ borderColor: `#C9A84C #C9A84C #C9A84C transparent` }}
+        />
       </div>
     );
   }
@@ -330,10 +435,18 @@ export default function MenuPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="text-4xl">🍽️</div>
-          <h1 className="text-xl font-bold text-neutral-900">Menü şu an kullanılamıyor</h1>
-          <p className="text-neutral-500 text-sm">Lütfen daha sonra tekrar deneyin</p>
+          <h1 className="text-xl font-bold text-neutral-900">
+            Menü şu an kullanılamıyor
+          </h1>
+          <p className="text-neutral-500 text-sm">
+            Lütfen daha sonra tekrar deneyin
+          </p>
           <button
-            onClick={() => { setError(null); setLoading(true); loadMenu(lang); }}
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              loadMenu(lang);
+            }}
             className="text-sm text-neutral-600 underline"
           >
             Yeniden dene
@@ -344,23 +457,40 @@ export default function MenuPage() {
   }
 
   return (
-    <div className={`min-h-screen bg-white ${isRtl ? "rtl" : "ltr"}`} dir={isRtl ? "rtl" : "ltr"}>
+    <div
+      className={`min-h-screen bg-white ${isRtl ? "rtl" : "ltr"}`}
+      dir={isRtl ? "rtl" : "ltr"}
+    >
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-neutral-100">
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {menu.restaurant.logoUrl && (
-              <img src={menu.restaurant.logoUrl} alt={menu.restaurant.name} className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
+              <img
+                src={menu.restaurant.logoUrl}
+                alt={menu.restaurant.name}
+                className="w-7 h-7 rounded-lg object-cover flex-shrink-0"
+              />
             )}
-            <h1 className="font-bold text-neutral-900 text-sm truncate">{menu.restaurant.name}</h1>
+            <h1 className="font-bold text-neutral-900 text-sm truncate">
+              {menu.restaurant.name}
+            </h1>
           </div>
           {menu.languages.length > 1 && (
             <div className="flex items-center gap-1">
               {menu.languages.map((l) => (
                 <button
                   key={l.code}
-                  onClick={() => { trackedView.current = false; setLang(l.code); }}
+                  onClick={() => {
+                    trackedView.current = false;
+                    setLang(l.code);
+                  }}
                   title={l.name}
-                  className={`w-8 h-8 rounded-full text-sm transition-all ${lang === l.code ? "bg-black text-white" : "text-neutral-500 hover:bg-neutral-100"}`}
+                  className="w-8 h-8 rounded-full text-sm transition-all"
+                  style={
+                    lang === l.code
+                      ? { backgroundColor: primaryColor, color: "#fff" }
+                      : { color: "#737373" }
+                  }
                 >
                   {LANG_FLAGS[l.code] ?? l.code.toUpperCase()}
                 </button>
@@ -376,11 +506,12 @@ export default function MenuPage() {
                 <button
                   key={cat.id}
                   onClick={() => scrollToCategory(cat.id)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                  className="px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors"
+                  style={
                     activeCategory === cat.id
-                      ? "bg-black text-white"
-                      : "text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
-                  }`}
+                      ? { backgroundColor: primaryColor, color: "#fff" }
+                      : { color: "#737373" }
+                  }
                 >
                   {cat.name}
                 </button>
@@ -394,22 +525,37 @@ export default function MenuPage() {
         {menu.categories.map((cat) => (
           <section
             key={cat.id}
-            ref={(el) => { categoryRefs.current[cat.id] = el; }}
+            ref={(el) => {
+              categoryRefs.current[cat.id] = el;
+            }}
             className="pt-8"
           >
             <div className="mb-4">
               <h2 className="text-xl font-bold text-neutral-900">{cat.name}</h2>
-              {cat.description && <p className="text-sm text-neutral-500 mt-1">{cat.description}</p>}
+              {cat.description && (
+                <p className="text-sm text-neutral-500 mt-1">{cat.description}</p>
+              )}
             </div>
             {cat.imageUrl && (
-              <img src={cat.imageUrl} alt={cat.name} className="w-full h-40 object-cover rounded-2xl mb-4" />
+              <img
+                src={cat.imageUrl}
+                alt={cat.name}
+                className="w-full h-40 object-cover rounded-2xl mb-4"
+              />
             )}
             <div>
               {cat.products.length === 0 ? (
-                <p className="text-sm text-neutral-400 py-4">Bu kategoride ürün bulunmuyor</p>
+                <p className="text-sm text-neutral-400 py-4">
+                  Bu kategoride ürün bulunmuyor
+                </p>
               ) : (
                 cat.products.map((product) => (
-                  <ProductCard key={product.id} product={product} lang={lang} />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    lang={lang}
+                    primaryColor={primaryColor}
+                  />
                 ))
               )}
             </div>
