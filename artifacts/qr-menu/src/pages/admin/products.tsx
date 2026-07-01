@@ -346,6 +346,7 @@ function ProductModal({
   const [aiLoading,      setAiLoading]      = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiFlash,        setAiFlash]        = useState(false);
+  const [imgStyle,       setImgStyle]       = useState<"restaurant"|"professional"|"rustic"|"minimal">("restaurant");
 
   /* ── Derived ── */
   const trName   = translations.find((t) => t.languageCode === "tr")?.name ?? "";
@@ -429,7 +430,7 @@ function ProductModal({
       const trDesc = translations.find((t) => t.languageCode === "tr")?.description;
       const result = await apiFetch<{ b64: string }>("/ai/generate-image", {
         method: "POST",
-        body: JSON.stringify({ productName: trName, productId: product?.id, category: cat?.translations.find((t) => t.languageCode === "tr")?.name, notes: trDesc }),
+        body: JSON.stringify({ productName: trName, productId: product?.id, category: cat?.translations.find((t) => t.languageCode === "tr")?.name, notes: trDesc, style: imgStyle }),
       });
 
       /* Same compression pipeline as manual file uploads */
@@ -580,6 +581,34 @@ function ProductModal({
           <div className="space-y-2">
             <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Görsel</p>
             <ImageUploader value={imageUrl} onChange={setImageUrl} />
+
+            {/* Style selector */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-neutral-600 uppercase tracking-widest">AI görsel stili</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {([
+                  { key: "restaurant",   label: "🍽️ Restoran",    desc: "Sıcak, doğal ortam" },
+                  { key: "professional", label: "📸 Profesyonel", desc: "Koyu fon, dramatik ışık" },
+                  { key: "rustic",       label: "🌿 Rustik",      desc: "Ahşap, güneş ışığı" },
+                  { key: "minimal",      label: "◾ Minimalist",   desc: "Sade, temiz kompozisyon" },
+                ] as const).map(({ key, label, desc }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setImgStyle(key)}
+                    className={`flex flex-col items-start px-2.5 py-2 rounded-lg border text-left text-xs transition-colors ${
+                      imgStyle === key
+                        ? "border-amber-500/70 bg-amber-500/10 text-amber-300"
+                        : "border-neutral-700 bg-neutral-800/50 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300"
+                    }`}
+                  >
+                    <span className="font-medium leading-tight">{label}</span>
+                    <span className="text-[10px] opacity-70 leading-tight mt-0.5">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               type="button" onClick={handleAiImageGenerate}
               disabled={aiImageLoading || !trName}
@@ -587,7 +616,7 @@ function ProductModal({
             >
               {aiImageLoading
                 ? <><span className="animate-spin text-xs">⟳</span> Görsel üretiliyor… (~20-30 sn)</>
-                : <><Sparkles className="w-4 h-4 text-amber-500" /> AI ile Görsel Üret (GPT-4o)</>}
+                : <><Sparkles className="w-4 h-4 text-amber-500" /> AI ile Görsel Üret</>}
             </button>
           </div>
 

@@ -6,58 +6,72 @@ import { randomUUID } from "crypto";
 
 const router = Router();
 
-const PRODUCT_PROMPTS: { keywords: string[]; style: string }[] = [
-  {
-    keywords: ["çorba", "soup", "mercimek", "domates", "kremalı", "bulyon"],
-    style: "steam rising naturally from a ceramic bowl, rustic wooden surface, fresh herb garnish floating on top, natural side lighting with soft bokeh",
+/* ─── Image style definitions ──────────────────────────────────── */
+type ImageStyle = "restaurant" | "professional" | "rustic" | "minimal";
+
+interface StyleDef {
+  surface: string;
+  light: string;
+  mood: string;
+  angle: string;
+}
+
+const STYLE_DEFS: Record<ImageStyle, StyleDef> = {
+  restaurant: {
+    surface: "casual restaurant table, slightly worn wooden surface, simple ceramic plate",
+    light: "warm ambient restaurant lighting, soft overhead glow, natural and inviting shadows",
+    mood: "authentic everyday restaurant feel, unpretentious, appetizing and real, like a candid photo taken at the table",
+    angle: "slight 30-degree angle, relaxed composition",
   },
-  {
-    keywords: ["tatlı", "dessert", "pasta", "kek", "brownie", "cheesecake", "dondurma", "baklava", "pudding", "mousse", "tiramisu"],
-    style: "elegant plating on a dark matte plate, caramel drizzle and berry accent, warm golden rim lighting, shallow depth of field",
+  professional: {
+    surface: "dark polished slate or black marble surface, elegant matte plate",
+    light: "dramatic directional side lighting with subtle rim highlight, shallow depth of field",
+    mood: "fine dining presentation, artful plating with microgreens and sauce dots, upscale restaurant quality",
+    angle: "classic 45-degree hero angle",
   },
-  {
-    keywords: ["içecek", "drink", "kokteyl", "cocktail", "kahve", "coffee", "çay", "tea", "ayran", "şarap", "wine", "bira", "beer", "juice", "meyve suyu"],
-    style: "in an elegant crystal or ceramic vessel, condensation droplets catching the light, garnish of citrus or fresh herbs, moody dark bar background with bokeh",
+  rustic: {
+    surface: "aged oak wooden board, rough linen cloth, scattered fresh herbs and spices nearby",
+    light: "warm golden natural window light from the side, soft organic shadows, cozy atmosphere",
+    mood: "farmhouse and homemade warmth, slightly imperfect and charming, traditional Turkish home cooking feel",
+    angle: "relaxed overhead or slight angle, organic composition",
   },
-  {
-    keywords: ["salata", "salad", "yeşillik", "roka", "marul"],
-    style: "overhead shot on a white linen surface, vibrant colorful fresh vegetables, drops of olive oil glistening, bright airy natural lighting",
+  minimal: {
+    surface: "clean dark charcoal slate, completely uncluttered, single elegant plate",
+    light: "soft even studio lighting from above, no harsh shadows, quiet and calm",
+    mood: "zen simplicity, all focus on the food itself, modern minimalist aesthetic",
+    angle: "centered overhead flat lay or straight-on",
   },
-  {
-    keywords: ["pizza", "pide", "lahmacun"],
-    style: "overhead flat lay on dark wooden board, pulled cheese stretch visible, fresh basil on top, Italian restaurant atmosphere lighting",
-  },
-  {
-    keywords: ["burger", "sandviç", "sandwich", "wrap"],
-    style: "45-degree angle hero shot, perfectly layered cross-section visible, sesame seeds catching the light, dark background with dramatic spotlight",
-  },
+};
+
+/* Category-specific plating hints (style-agnostic, blended in) */
+const PLATING_HINTS: { keywords: string[]; hint: string }[] = [
+  { keywords: ["çorba", "soup", "mercimek", "domates", "kremalı"], hint: "served in a deep bowl, steam rising gently, herb garnish on top" },
+  { keywords: ["tatlı", "dessert", "pasta", "kek", "brownie", "cheesecake", "dondurma", "baklava", "tiramisu"], hint: "small elegant portion, garnished with berry or caramel accent" },
+  { keywords: ["içecek", "drink", "kokteyl", "cocktail", "kahve", "coffee", "çay", "ayran", "şarap", "bira"], hint: "in an appropriate glass or cup, garnish of citrus or fresh herb on rim" },
+  { keywords: ["salata", "salad", "yeşillik", "roka", "marul"], hint: "colorful fresh vegetables, vibrant greens, light olive oil drizzle" },
+  { keywords: ["pizza", "pide", "lahmacun"], hint: "full view showing toppings, fresh basil, slight cheese pull visible" },
+  { keywords: ["burger", "sandviç", "sandwich", "wrap"], hint: "cross-section or slight tilt to show all layers" },
 ];
 
-const VARIATIONS = [
-  "natural window light from the left",
-  "soft diffused natural light from above",
-  "warm golden hour side lighting",
-  "cool studio lighting with subtle rim light",
-  "candlelit warm atmospheric light",
-];
-
-const BACKGROUNDS = [
-  "dark slate stone surface",
-  "aged oak wooden board",
-  "brushed concrete countertop",
-  "black marble with subtle veining",
-  "charcoal linen tablecloth",
-];
-
-function buildImagePrompt(productName: string, category?: string, notes?: string): string {
+function buildImagePrompt(productName: string, style: ImageStyle, category?: string, notes?: string): string {
+  const s = STYLE_DEFS[style];
   const combined = `${productName} ${category ?? ""} ${notes ?? ""}`.toLowerCase();
-  let style = "overhead shot on dark slate plate, perfectly plated with microgreens garnish, shallow depth of field, restaurant quality presentation";
-  for (const { keywords, style: s } of PRODUCT_PROMPTS) {
-    if (keywords.some((kw) => combined.includes(kw))) { style = s; break; }
+
+  let plating = "beautifully plated on the surface";
+  for (const { keywords, hint } of PLATING_HINTS) {
+    if (keywords.some((kw) => combined.includes(kw))) { plating = hint; break; }
   }
-  const variation = VARIATIONS[Math.floor(Math.random() * VARIATIONS.length)];
-  const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
-  return `Professional food photography of "${productName}", ${style}, ${variation}, ${bg}, ultra realistic, 8K quality, Turkish cuisine aesthetics, no text, no watermark, food only`;
+
+  return [
+    `Food photo of "${productName}" for a restaurant menu`,
+    `Plating: ${plating}`,
+    `Surface: ${s.surface}`,
+    `Lighting: ${s.light}`,
+    `Mood: ${s.mood}`,
+    `Angle: ${s.angle}`,
+    "No text, no watermarks, no hands, food only",
+    "Realistic natural colors, appetizing presentation",
+  ].join(". ");
 }
 
 /**
@@ -67,20 +81,24 @@ function buildImagePrompt(productName: string, category?: string, notes?: string
  * the same optimization pipeline is applied for both manual and AI images.
  */
 router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> => {
-  const { productName, productId, category, notes } = req.body as {
+  const { productName, productId, category, notes, style } = req.body as {
     productName?: string;
     productId?: number;
     category?: string;
     notes?: string;
+    style?: string;
   };
 
   if (!productName) { res.status(400).json({ error: "Ürün adı gerekli" }); return; }
+
+  const validStyles: ImageStyle[] = ["restaurant", "professional", "rustic", "minimal"];
+  const resolvedStyle: ImageStyle = validStyles.includes(style as ImageStyle) ? (style as ImageStyle) : "restaurant";
 
   const [settings] = await db.select().from(settingsTable).limit(1);
   const apiKey = settings?.openAiKey || process.env.OPENAI_API_KEY;
   if (!apiKey) { res.status(400).json({ error: "OpenAI API anahtarı ayarlarda yapılandırılmamış" }); return; }
 
-  const prompt = buildImagePrompt(productName, category, notes);
+  const prompt = buildImagePrompt(productName, resolvedStyle, category, notes);
   let success = false;
 
   try {
@@ -91,7 +109,7 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
         model: "gpt-image-1",
         prompt,
         n: 1,
-        size: "1024x1024",
+        size: "1536x1024",
         output_format: "jpeg",
         output_compression: 90,
       }),
