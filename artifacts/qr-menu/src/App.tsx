@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +11,35 @@ import AdminProducts from "@/pages/admin/products";
 import AdminSettings from "@/pages/admin/settings";
 import AdminLogin from "@/pages/admin/login";
 import MenuPage from "@/pages/menu/menu-page";
+import { apiFetch } from "@/lib/api";
+
+function RootRedirect() {
+  const [, navigate] = useLocation();
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ slug: string }>("/settings/public")
+      .then(({ slug }) => navigate(`/menu/${slug}`, { replace: true }))
+      .catch(() => setError(true));
+  }, []);
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black text-white">
+        <div className="text-center space-y-3">
+          <p className="text-neutral-400 text-sm">Menü bulunamadı.</p>
+          <a href="/admin" className="text-xs text-neutral-600 underline">Yönetim</a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,23 +89,7 @@ function Router() {
         )}
       </Route>
 
-      <Route
-        path="/"
-        component={() => (
-          <div className="min-h-screen flex items-center justify-center bg-black text-white">
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold tracking-tight">QR Menü</h1>
-              <p className="text-neutral-400">Restoran QR Menü Sistemi</p>
-              <a
-                href="/admin"
-                className="inline-block mt-4 px-6 py-3 bg-white text-black font-medium rounded-full hover:bg-neutral-100 transition-colors"
-              >
-                Yönetim Paneli →
-              </a>
-            </div>
-          </div>
-        )}
-      />
+      <Route path="/" component={RootRedirect} />
 
       <Route component={NotFound} />
     </Switch>
