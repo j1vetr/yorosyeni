@@ -22,6 +22,7 @@ interface Translation {
   description?: string;
   ingredients?: string;
   allergenNote?: string;
+  specialNote?: string;
 }
 
 interface NutritionFacts {
@@ -326,13 +327,17 @@ function ProductModal({
   const [customAllergen, setCustomAllergen] = useState("");
   const [nutrition,    setNutrition]    = useState<NutritionFacts>(product?.nutritionFacts ?? {});
   const [translations, setTranslations] = useState<Translation[]>(
-    languages.map((l) => ({
-      languageCode: l.code,
-      name:         product?.translations?.find((t) => t.languageCode === l.code)?.name         ?? "",
-      description:  product?.translations?.find((t) => t.languageCode === l.code)?.description  ?? "",
-      ingredients:  product?.translations?.find((t) => t.languageCode === l.code)?.ingredients  ?? "",
-      allergenNote: product?.translations?.find((t) => t.languageCode === l.code)?.allergenNote ?? "",
-    }))
+    languages.map((l) => {
+      const ex = product?.translations?.find((t) => t.languageCode === l.code);
+      return {
+        languageCode: l.code,
+        name:         ex?.name         ?? "",
+        description:  ex?.description  ?? "",
+        ingredients:  ex?.ingredients  ?? "",
+        allergenNote: ex?.allergenNote ?? "",
+        specialNote:  ex?.specialNote  ?? "",
+      };
+    })
   );
   const [activeLang, setActiveLang] = useState(languages[0]?.code ?? "tr");
 
