@@ -13,15 +13,9 @@ import { eq, asc, and } from "drizzle-orm";
 
 const router = Router();
 
-router.get("/menu/:slug", async (req, res): Promise<void> => {
-  const { slug } = req.params;
-  const lang = (req.query.lang as string) || "tr";
-
+async function buildMenuResponse(slug: string, lang: string) {
   const [settings] = await db.select().from(settingsTable).where(eq(settingsTable.slug, slug));
-  if (!settings) {
-    res.status(404).json({ error: "Menu not found" });
-    return;
-  }
+  if (!settings) return null;
 
   const languages = await db
     .select()
@@ -121,7 +115,7 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
     })
   );
 
-  res.json({
+  return {
     restaurant: {
       name: settings.restaurantName,
       logoUrl: settings.logoUrl,
@@ -131,7 +125,43 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
     languages: languages.map((l) => ({ code: l.code, name: l.name })),
     currentLanguage: lang,
     categories: result,
+  };
+}
+
+router.get("/menu", async (req, res): Promise<void> => {
+  const lang = (req.query.lang as string) || "tr";
+  const [settings] = await db.select().from(settingsTable).limit(1);
+  if (!settings) {
+    res.status(404).json({ error: "Menü bulunamadı" });
+    return;
+  }
+  const data = await buildMenuResponse(settings.slug, lang);
+  if (!data) {
+    res.status(404).json({ error: "Menü bulunamadı" });
+    return;
+  }
+  res.json(data);
+});
+
+router.get("/menu/:slug", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const lang = (req.query.lang as string) || "tr";
+  const data = await buildMenuResponse(slug, lang);
+  if (!data) {
+    res.status(404).json({ error: "Menü bulunamadı" });
+    return;
+  }
+  res.json(data);
+});
+
+router.post("/menu/view", async (req, res): Promise<void> => {
+  const lang = req.body?.lang ?? req.query.lang ?? null;
+  await db.insert(analyticsEventsTable).values({
+    type: "menu_view",
+    languageCode: lang as string | undefined,
+    userAgent: req.headers["user-agent"],
   });
+  res.json({ ok: true });
 });
 
 router.post("/menu/:slug/view", async (req, res): Promise<void> => {

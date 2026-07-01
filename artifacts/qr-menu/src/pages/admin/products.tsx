@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload, ImageIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload, ImageIcon, Eye, Image } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -62,6 +62,11 @@ interface Language {
 }
 
 const LANG_FLAGS: Record<string, string> = { tr: "🇹🇷", en: "🇬🇧", ru: "🇷🇺", ar: "🇸🇦" };
+
+function formatViewCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}B`;
+  return String(n);
+}
 
 async function uploadImage(file: File): Promise<string> {
   const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
@@ -183,11 +188,13 @@ function ImageUploader({
 function SortableProductRow({
   product,
   categories,
+  viewCount,
   onEdit,
   onDelete,
 }: {
   product: Product;
   categories: Category[];
+  viewCount?: number;
   onEdit: (p: Product) => void;
   onDelete: (id: number) => void;
 }) {
@@ -204,10 +211,21 @@ function SortableProductRow({
       {product.imageUrl && (
         <img src={product.imageUrl} alt={trName} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
       )}
+      {!product.imageUrl && (
+        <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
+          <Image className="w-4 h-4 text-neutral-600" />
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-white truncate">{trName}</div>
         <div className="text-xs text-neutral-500">{catName}</div>
       </div>
+      {viewCount != null && viewCount > 0 && (
+        <div className="flex items-center gap-1 text-xs text-neutral-500">
+          <Eye className="w-3 h-3" />
+          <span>{formatViewCount(viewCount)}</span>
+        </div>
+      )}
       <div className="text-sm text-neutral-300 font-medium">
         {product.price > 0 ? `${product.price} ${product.currency ?? "TRY"}` : "—"}
       </div>
@@ -258,6 +276,7 @@ function ProductModal({
   );
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiImageLoading, setAiImageLoading] = useState(false);
 
   function updateTr(code: string, field: keyof Omit<Translation, "languageCode">, value: string) {
     setTranslations((prev) =>
@@ -309,11 +328,37 @@ function ProductModal({
           };
         })
       );
-      toast({ title: "AI içerik üretildi" });
+      toast({ title: "AI içerik üretildi ✓", description: "Alerjen ve kalori değerleri otomatik dolduruldu." });
     } catch (err) {
       toast({ title: "AI hatası", description: String(err), variant: "destructive" });
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function handleAiImageGenerate() {
+    const trName = translations.find((t) => t.languageCode === "tr")?.name || slug;
+    if (!trName) { toast({ title: "Önce ürün adını girin", variant: "destructive" }); return; }
+    setAiImageLoading(true);
+    try {
+      const cat = categories.find((c) => c.id === categoryId);
+      const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name ?? undefined;
+      const trDesc = translations.find((t) => t.languageCode === "tr")?.description ?? undefined;
+      const result = await apiFetch<{ imageUrl: string }>("/ai/generate-image", {
+        method: "POST",
+        body: JSON.stringify({
+          productName: trName,
+          productId: product?.id ?? undefined,
+          category: catName,
+          notes: trDesc,
+        }),
+      });
+      setImageUrl(result.imageUrl);
+      toast({ title: "AI görseli üretildi ✓" });
+    } catch (err) {
+      toast({ title: "Görsel üretme hatası", description: String(err), variant: "destructive" });
+    } finally {
+      setAiImageLoading(false);
     }
   }
 
@@ -386,7 +431,27 @@ function ProductModal({
             </div>
           </div>
 
-          <ImageUploader value={imageUrl} onChange={setImageUrl} />
+          <div className="space-y-2">
+            <ImageUploader value={imageUrl} onChange={setImageUrl} />
+            <button
+              type="button"
+              onClick={handleAiImageGenerate}
+              disabled={aiImageLoading}
+              className="flex items-center gap-2 w-full justify-center px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:text-white hover:border-neutral-500 disabled:opacity-50 transition-colors"
+            >
+              {aiImageLoading ? (
+                <>
+                  <span className="animate-spin text-xs">⟳</span>
+                  Görsel üretiliyor... (~15-30 sn)
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  AI ile Görsel Üret (GPT-4o)
+                </>
+              )}
+            </button>
+          </div>
 
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Alerjenler (virgülle ayırın)</label>
@@ -505,6 +570,7 @@ export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [languages, setLanguages] = useState<Language[]>([]);
+  const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
   const [editing, setEditing] = useState<Partial<Product> | null | false>(false);
   const [filterCat, setFilterCat] = useState<number | "all">("all");
 
@@ -519,6 +585,10 @@ export default function AdminProducts() {
     setProducts(prods.sort((a, b) => a.sortOrder - b.sortOrder));
     setCategories(cats);
     setLanguages(langs);
+
+    apiFetch<Record<number, number>>("/analytics/product-views")
+      .then(setViewCounts)
+      .catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
@@ -603,6 +673,7 @@ export default function AdminProducts() {
                   key={product.id}
                   product={product}
                   categories={categories}
+                  viewCount={viewCounts[product.id]}
                   onEdit={setEditing}
                   onDelete={handleDelete}
                 />

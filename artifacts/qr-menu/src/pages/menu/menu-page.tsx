@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "wouter";
 import { apiFetch } from "@/lib/api";
 import { ChevronDown, X, Info, Flame, Beef, Wheat, Droplet } from "lucide-react";
 
@@ -72,12 +71,10 @@ function NutritionRow({ icon: Icon, label, value, unit }: { icon: typeof Flame; 
 function ProductDetailModal({
   product,
   lang,
-  slug,
   onClose,
 }: {
   product: ProductData;
   lang: string;
-  slug: string;
   onClose: () => void;
 }) {
   const isRtl = RTL_LANGS.includes(lang);
@@ -196,11 +193,9 @@ function ProductDetailModal({
 function ProductCard({
   product,
   lang,
-  slug,
 }: {
   product: ProductData;
   lang: string;
-  slug: string;
 }) {
   const [showModal, setShowModal] = useState(false);
 
@@ -253,7 +248,6 @@ function ProductCard({
         <ProductDetailModal
           product={product}
           lang={lang}
-          slug={slug}
           onClose={() => setShowModal(false)}
         />
       )}
@@ -262,7 +256,6 @@ function ProductCard({
 }
 
 export default function MenuPage() {
-  const { slug } = useParams<{ slug: string }>();
   const [menu, setMenu] = useState<MenuData | null>(null);
   const [lang, setLang] = useState("tr");
   const [loading, setLoading] = useState(true);
@@ -273,7 +266,7 @@ export default function MenuPage() {
 
   async function loadMenu(language: string) {
     try {
-      const data = await apiFetch<MenuData>(`/menu/${slug}?lang=${language}`);
+      const data = await apiFetch<MenuData>(`/menu?lang=${language}`);
       setMenu(data);
       if (data.categories[0]) setActiveCategory(data.categories[0].id);
 
@@ -281,7 +274,7 @@ export default function MenuPage() {
       const metaDesc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
       if (metaDesc) metaDesc.content = `${data.restaurant.name} dijital menüsü`;
     } catch {
-      setError("Menü bulunamadı");
+      setError("Menü yüklenemedi");
     } finally {
       setLoading(false);
     }
@@ -290,12 +283,12 @@ export default function MenuPage() {
   useEffect(() => {
     setLoading(true);
     loadMenu(lang);
-  }, [slug, lang]);
+  }, [lang]);
 
   useEffect(() => {
     if (menu && !trackedView.current) {
       trackedView.current = true;
-      apiFetch(`/menu/${slug}/view`, {
+      apiFetch("/menu/view", {
         method: "POST",
         body: JSON.stringify({ lang }),
       }).catch(() => {});
@@ -327,7 +320,7 @@ export default function MenuPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-neutral-400 text-sm">Yükleniyor...</div>
+        <div className="w-5 h-5 rounded-full border-2 border-neutral-300 border-t-neutral-800 animate-spin" />
       </div>
     );
   }
@@ -335,10 +328,16 @@ export default function MenuPage() {
   if (error || !menu) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🍽️</div>
-          <h1 className="text-xl font-bold text-neutral-900">Menü bulunamadı</h1>
-          <p className="text-neutral-500 mt-2 text-sm">Bu QR kod geçersiz olabilir</p>
+        <div className="text-center space-y-3">
+          <div className="text-4xl">🍽️</div>
+          <h1 className="text-xl font-bold text-neutral-900">Menü şu an kullanılamıyor</h1>
+          <p className="text-neutral-500 text-sm">Lütfen daha sonra tekrar deneyin</p>
+          <button
+            onClick={() => { setError(null); setLoading(true); loadMenu(lang); }}
+            className="text-sm text-neutral-600 underline"
+          >
+            Yeniden dene
+          </button>
         </div>
       </div>
     );
@@ -410,7 +409,7 @@ export default function MenuPage() {
                 <p className="text-sm text-neutral-400 py-4">Bu kategoride ürün bulunmuyor</p>
               ) : (
                 cat.products.map((product) => (
-                  <ProductCard key={product.id} product={product} lang={lang} slug={slug!} />
+                  <ProductCard key={product.id} product={product} lang={lang} />
                 ))
               )}
             </div>

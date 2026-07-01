@@ -14,7 +14,12 @@ async function getSettings() {
 router.get("/settings/public", async (_req, res): Promise<void> => {
   const settings = await getSettings();
   if (!settings) { res.status(404).json({ error: "Not found" }); return; }
-  res.json({ slug: settings.slug, restaurantName: settings.restaurantName });
+  res.json({
+    slug: settings.slug,
+    restaurantName: settings.restaurantName,
+    primaryColor: settings.primaryColor ?? "#C9A84C",
+    logoUrl: settings.logoUrl ?? null,
+  });
 });
 
 router.get("/settings", requireAuth, async (_req, res): Promise<void> => {

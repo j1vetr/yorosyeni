@@ -24,6 +24,17 @@ interface Language {
 
 const LANG_FLAGS: Record<string, string> = { tr: "🇹🇷", en: "🇬🇧", ru: "🇷🇺", ar: "🇸🇦" };
 
+const PRESET_COLORS = [
+  { label: "Altın", value: "#C9A84C" },
+  { label: "Amber", value: "#D97706" },
+  { label: "Bakır", value: "#B45309" },
+  { label: "Gül", value: "#E11D48" },
+  { label: "Mor", value: "#7C3AED" },
+  { label: "Mavi", value: "#2563EB" },
+  { label: "Yeşil", value: "#16A34A" },
+  { label: "Beyaz", value: "#F5F5F5" },
+];
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -38,7 +49,7 @@ export default function AdminSettings() {
   const [form, setForm] = useState<Settings>({
     slug: "",
     restaurantName: "",
-    primaryColor: "#000000",
+    primaryColor: "#C9A84C",
     currency: "TRY",
     defaultLanguage: "tr",
   });
@@ -53,17 +64,15 @@ export default function AdminSettings() {
     apiFetch<Settings>("/settings")
       .then((s) => {
         setForm(s);
-        if (s.slug) {
-          updateQr(s.slug);
-        }
+        updateQr();
       })
       .catch(() => {});
     loadLanguages();
   }, []);
 
-  function updateQr(slug: string) {
+  function updateQr() {
     const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
-    const url = `${base}/menu/${slug}`;
+    const url = `${base}/`;
     setQrUrl(url);
     setQrImg(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&format=png&data=${encodeURIComponent(url)}`);
   }
@@ -80,7 +89,7 @@ export default function AdminSettings() {
     setSaving(true);
     try {
       await apiFetch("/settings", { method: "PATCH", body: JSON.stringify(form) });
-      if (form.slug) updateQr(form.slug);
+      updateQr();
       toast({ title: "Ayarlar kaydedildi" });
     } catch (err) {
       toast({ title: "Hata", description: String(err), variant: "destructive" });
@@ -147,7 +156,7 @@ export default function AdminSettings() {
         <Field label="Restoran Adı">
           <input value={form.restaurantName} onChange={(e) => set("restaurantName", e.target.value)} className={inputCls} placeholder="Restoran Adı" />
         </Field>
-        <Field label="Slug (Menü URL'si)">
+        <Field label="Slug (Sistem Tanımlayıcı)">
           <input value={form.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} placeholder="restoran-adi" />
         </Field>
         <div className="grid grid-cols-2 gap-4">
@@ -173,6 +182,44 @@ export default function AdminSettings() {
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
+        <h2 className="text-sm font-medium text-white uppercase tracking-widest">Menü Vurgu Rengi</h2>
+        <p className="text-xs text-neutral-500">Müşteri menüsündeki altın/amber tonları bu renkle değişir. Siyah arka plan sabittir.</p>
+
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <input
+              type="color"
+              value={form.primaryColor}
+              onChange={(e) => set("primaryColor", e.target.value)}
+              className="w-12 h-12 rounded-xl border-2 border-neutral-700 cursor-pointer bg-transparent p-0.5"
+            />
+          </div>
+          <div>
+            <div className="text-white text-sm font-medium">Seçili Renk</div>
+            <div className="text-neutral-400 text-xs font-mono uppercase">{form.primaryColor}</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {PRESET_COLORS.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => set("primaryColor", c.value)}
+              title={c.label}
+              className={`w-8 h-8 rounded-full border-2 transition-all ${form.primaryColor === c.value ? "border-white scale-110" : "border-transparent hover:border-neutral-500"}`}
+              style={{ backgroundColor: c.value }}
+            />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-neutral-700" style={{ background: "#0A0A0A" }}>
+          <div className="w-6 h-6 rounded-full" style={{ backgroundColor: form.primaryColor }} />
+          <div className="text-xs" style={{ color: form.primaryColor }}>Önizleme: Fiyat ve Vurgu Elementleri</div>
+          <div className="ml-auto text-xs text-neutral-600">Menüde bu renk kullanılır</div>
+        </div>
+      </div>
+
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
         <h2 className="text-sm font-medium text-white uppercase tracking-widest">AI İçerik Üretimi</h2>
         <Field label="OpenAI API Anahtarı">
           <input
@@ -182,7 +229,7 @@ export default function AdminSettings() {
             className={inputCls}
             placeholder="sk-..."
           />
-          <p className="mt-1 text-xs text-neutral-500">Ürün açıklama, içerik ve besin değerlerini otomatik üretir</p>
+          <p className="mt-1 text-xs text-neutral-500">Ürün açıklama, içerik, besin değerleri ve AI görsel üretimi için kullanılır</p>
         </Field>
       </div>
 

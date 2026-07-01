@@ -103,16 +103,33 @@ async function getTimeseries(period: string | undefined) {
     }));
 }
 
-// Spec path: /analytics/views
 router.get("/analytics/views", requireAuth, async (req, res): Promise<void> => {
   const data = await getTimeseries(req.query.period as string | undefined);
   res.json(data);
 });
 
-// Legacy path kept for backwards compat
 router.get("/analytics/timeseries", requireAuth, async (req, res): Promise<void> => {
   const data = await getTimeseries(req.query.period as string | undefined);
   res.json(data);
+});
+
+router.get("/analytics/product-views", requireAuth, async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      productId: analyticsEventsTable.productId,
+      count: count(),
+    })
+    .from(analyticsEventsTable)
+    .where(eq(analyticsEventsTable.type, "product_view"))
+    .groupBy(analyticsEventsTable.productId);
+
+  const result: Record<number, number> = {};
+  for (const row of rows) {
+    if (row.productId != null) {
+      result[row.productId] = row.count;
+    }
+  }
+  res.json(result);
 });
 
 router.get("/analytics/top-products", requireAuth, async (_req, res): Promise<void> => {

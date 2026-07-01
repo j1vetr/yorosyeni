@@ -30,7 +30,7 @@ export const settingsTable = pgTable("settings", {
   slug: varchar("slug", { length: 64 }).notNull().unique(),
   restaurantName: text("restaurant_name").notNull().default("Restaurant"),
   logoUrl: text("logo_url"),
-  primaryColor: varchar("primary_color", { length: 16 }).default("#000000"),
+  primaryColor: varchar("primary_color", { length: 16 }).default("#C9A84C"),
   currency: varchar("currency", { length: 8 }).default("TRY"),
   defaultLanguage: varchar("default_language", { length: 8 }).default("tr"),
   openAiKey: text("openai_key"),
