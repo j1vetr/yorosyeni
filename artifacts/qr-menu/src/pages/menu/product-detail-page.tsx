@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRoute, useLocation } from "wouter";
-import { ChevronDown, Info } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useMenu, formatPrice } from "@/contexts/menu-context";
 import MenuHeader from "@/components/menu/menu-header";
 import PageTransition from "@/components/menu/page-transition";
@@ -74,8 +74,6 @@ export default function ProductDetailPage() {
   const kcal = product.calories ?? nf?.energy;
   const kj = kcal ? Math.round(kcal * 4.184) : null;
 
-  const isChefSpecial = product.specialNote?.toLowerCase().includes("şef") || product.allergenNote?.toLowerCase().includes("özel");
-
   const maxMacro = Math.max(nf?.protein ?? 0, nf?.carbs ?? 0, nf?.fat ?? 0, 1);
 
   return (
@@ -96,16 +94,6 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="max-w-xl mx-auto px-4 pt-4 space-y-5">
-        {/* Chef badge */}
-        {isChefSpecial && (
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-            style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
-          >
-            👨‍🍳 Şefin Önerisi
-          </div>
-        )}
-
         {/* Title + Price */}
         <div>
           <h1 className="text-3xl font-bold text-white tracking-tight mb-2">{product.name}</h1>
@@ -124,29 +112,41 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Nutrition cards */}
+        {/* Nutrition card */}
         {(kcal || kj) && (
-          <div className="grid grid-cols-2 gap-3">
-            {kcal && (
-              <div className="bg-[#1C1C1C] rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-                <span className="text-xl">🔥</span>
-                <div>
-                  <div className="text-base font-bold text-white">{kcal} kcal</div>
-                  <div className="text-xs text-white/40">Kalori</div>
-                </div>
-                <Info className="w-4 h-4 ml-auto flex-shrink-0" style={{ color: `${accent}66` }} />
+          <div
+            className="rounded-2xl p-4 flex items-center gap-4"
+            style={{
+              background: `linear-gradient(135deg, ${accent}18 0%, ${accent}06 100%)`,
+              border: `1px solid ${accent}30`,
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+              style={{ background: `${accent}20` }}
+            >
+              🔥
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] text-white/35 uppercase tracking-widest mb-1">
+                Enerji Değeri
               </div>
-            )}
-            {kj && (
-              <div className="bg-[#1C1C1C] rounded-2xl p-4 flex items-center gap-3 border border-white/5">
-                <span className="text-xl">⚡</span>
-                <div>
-                  <div className="text-base font-bold text-white">{kj} kJ</div>
-                  <div className="text-xs text-white/40">Enerji</div>
-                </div>
-                <Info className="w-4 h-4 ml-auto flex-shrink-0" style={{ color: `${accent}66` }} />
+              <div className="flex items-baseline gap-3 flex-wrap">
+                {kcal && (
+                  <span className="text-2xl font-bold text-white leading-none">
+                    {kcal}{" "}
+                    <span className="text-sm font-normal text-white/45">kcal</span>
+                  </span>
+                )}
+                {kcal && kj && <span className="text-white/20 text-lg leading-none">·</span>}
+                {kj && (
+                  <span className="text-base font-semibold leading-none" style={{ color: `${accent}CC` }}>
+                    {kj}{" "}
+                    <span className="text-xs font-normal" style={{ color: `${accent}80` }}>kJ</span>
+                  </span>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -162,7 +162,7 @@ export default function ProductDetailPage() {
                   >
                     {getAllergenIcon(a)}
                   </div>
-                  <span className="text-[10px] text-white/40 text-center leading-tight">{a}</span>
+                  <span className="text-[10px] text-white/40 text-center leading-tight capitalize">{a.charAt(0).toUpperCase() + a.slice(1)}</span>
                 </div>
               ))}
             </div>
@@ -221,20 +221,6 @@ export default function ProductDetailPage() {
           </div>
         ) : null}
 
-        {/* Chef's note */}
-        {product.specialNote && (
-          <div className="bg-[#141414] rounded-2xl p-4 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg" style={{ color: accent }}>❝</span>
-              <span className="text-sm font-bold" style={{ color: accent }}>Şefin Notu</span>
-            </div>
-            <p className="text-sm text-white/60 italic leading-relaxed">{product.specialNote}</p>
-            <p className="text-right text-xs italic mt-2" style={{ color: `${accent}99` }}>
-              — Ekibimiz
-            </p>
-          </div>
-        )}
-
         {/* Back button */}
         <button
           onClick={() => navigate(`/categories/${categorySlug}`)}
@@ -244,9 +230,6 @@ export default function ProductDetailPage() {
           ← MENÜYE DÖN
         </button>
 
-        <p className="text-center text-xs text-white/30 italic">
-          ⓘ Bilgi amaçlıdır. Sipariş oluşturulamaz.
-        </p>
       </div>
     </div>
     </PageTransition>
