@@ -1,30 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload, ImageIcon, Eye, Image } from "lucide-react";
 import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
+  Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
+  ImageIcon, Eye, Image, ChevronDown, ChevronUp,
+} from "lucide-react";
+import {
+  DndContext, closestCenter, PointerSensor,
+  useSensor, useSensors, DragEndEvent,
 } from "@dnd-kit/core";
 import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
+  SortableContext, verticalListSortingStrategy,
+  useSortable, arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+/* ─── Types ─────────────────────────────────────────────────────── */
 interface Translation {
   languageCode: string;
   name: string;
   description?: string;
   ingredients?: string;
   allergenNote?: string;
-  specialNote?: string;
 }
 
 interface NutritionFacts {
@@ -61,47 +58,83 @@ interface Language {
   name: string;
 }
 
+/* ─── Constants ─────────────────────────────────────────────────── */
 const LANG_FLAGS: Record<string, string> = { tr: "🇹🇷", en: "🇬🇧", ru: "🇷🇺", ar: "🇸🇦" };
+const LANG_LABELS: Record<string, string> = { tr: "TR", en: "EN", ru: "RU", ar: "AR" };
 
-function formatViewCount(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}B`;
-  return String(n);
+const ALLERGEN_CHIPS = [
+  { key: "gluten", label: "Gluten", icon: "🌾" },
+  { key: "süt", label: "Süt", icon: "🥛" },
+  { key: "yumurta", label: "Yumurta", icon: "🥚" },
+  { key: "balık", label: "Balık", icon: "🐟" },
+  { key: "kabuklu", label: "Kabuklu", icon: "🦐" },
+  { key: "fındık", label: "Fındık", icon: "🌰" },
+  { key: "yer fıstığı", label: "Yer Fıstığı", icon: "🥜" },
+  { key: "soya", label: "Soya", icon: "🫘" },
+  { key: "kereviz", label: "Kereviz", icon: "🌿" },
+  { key: "hardal", label: "Hardal", icon: "🌻" },
+  { key: "susam", label: "Susam", icon: "🫙" },
+];
+
+/* ─── Image utilities ────────────────────────────────────────────── */
+async function compressImage(file: File, maxWidth = 1200, quality = 0.85): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new globalThis.Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Sıkıştırma başarısız"))),
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 async function uploadImage(file: File): Promise<string> {
-  const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
-    "/storage/uploads/request-url",
-    {
-      method: "POST",
-      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-    }
+  const compressed = await compressImage(file);
+  const compFile = new File(
+    [compressed],
+    file.name.replace(/\.[^.]+$/, ".jpg"),
+    { type: "image/jpeg" }
   );
 
-  await fetch(uploadURL, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
-
+  const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    { method: "POST", body: JSON.stringify({ name: compFile.name, size: compFile.size, contentType: "image/jpeg" }) }
+  );
+  await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: compFile });
   const { servingUrl } = await apiFetch<{ servingUrl: string }>("/storage/uploads/confirm", {
-    method: "POST",
-    body: JSON.stringify({ objectPath }),
+    method: "POST", body: JSON.stringify({ objectPath }),
   });
-
   return servingUrl;
 }
 
-function ImageUploader({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (url: string) => void;
-}) {
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatViewCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return String(n);
+}
+
+/* ─── ImageUploader ─────────────────────────────────────────────── */
+function ImageUploader({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
+  const [compInfo, setCompInfo] = useState<string | null>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -110,15 +143,16 @@ function ImageUploader({
       toast({ title: "Sadece görsel dosyaları desteklenir", variant: "destructive" });
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "Dosya 5 MB'dan büyük olamaz", variant: "destructive" });
-      return;
-    }
     setUploading(true);
+    setCompInfo(null);
     try {
+      const originalSize = file.size;
+      const compressed = await compressImage(file);
+      const ratio = Math.round((1 - compressed.size / originalSize) * 100);
+      setCompInfo(`${formatBytes(originalSize)} → ${formatBytes(compressed.size)}${ratio > 0 ? ` (-%${ratio})` : ""}`);
       const url = await uploadImage(file);
       onChange(url);
-      toast({ title: "Görsel yüklendi" });
+      toast({ title: "Görsel yüklendi ✓", description: compInfo ?? undefined });
     } catch (err) {
       toast({ title: "Görsel yükleme hatası", description: String(err), variant: "destructive" });
     } finally {
@@ -127,9 +161,10 @@ function ImageUploader({
     }
   }
 
+  const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
+
   return (
     <div className="space-y-2">
-      <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Ürün Görseli</label>
       <div className="flex gap-2">
         <input
           value={value}
@@ -143,54 +178,36 @@ function ImageUploader({
           disabled={uploading}
           className="flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:text-white hover:border-neutral-500 disabled:opacity-50 transition-colors whitespace-nowrap"
         >
-          {uploading ? (
-            <span className="animate-spin text-xs">⟳</span>
-          ) : (
-            <Upload className="w-4 h-4" />
-          )}
+          {uploading ? <span className="animate-spin text-xs">⟳</span> : <Upload className="w-4 h-4" />}
           {uploading ? "Yükleniyor..." : "Yükle"}
         </button>
       </div>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFile}
-      />
-      {value && (
-        <div className="flex items-center gap-3 mt-2">
+      {compInfo && <p className="text-xs text-emerald-500">{compInfo} · optimize edildi</p>}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+      {value ? (
+        <div className="flex items-center gap-3">
           <img
-            src={value}
-            alt="Önizleme"
-            className="w-16 h-16 rounded-lg object-cover border border-neutral-700"
+            src={value} alt="Önizleme"
+            className="w-16 h-16 rounded-lg object-cover border border-neutral-700 flex-shrink-0"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-          <button
-            type="button"
-            onClick={() => onChange("")}
-            className="text-xs text-neutral-500 hover:text-red-400 transition-colors"
-          >
+          <button type="button" onClick={() => onChange("")} className="text-xs text-neutral-500 hover:text-red-400 transition-colors">
             Görseli kaldır
           </button>
         </div>
-      )}
-      {!value && (
+      ) : (
         <div className="flex items-center gap-2 p-3 border border-dashed border-neutral-700 rounded-lg text-neutral-600">
           <ImageIcon className="w-4 h-4" />
-          <span className="text-xs">Görsel eklenmedi</span>
+          <span className="text-xs">Görsel eklenmedi — max 1200px, JPEG olarak optimize edilecek</span>
         </div>
       )}
     </div>
   );
 }
 
+/* ─── SortableProductRow ─────────────────────────────────────────── */
 function SortableProductRow({
-  product,
-  categories,
-  viewCount,
-  onEdit,
-  onDelete,
+  product, categories, viewCount, onEdit, onDelete,
 }: {
   product: Product;
   categories: Category[];
@@ -208,10 +225,9 @@ function SortableProductRow({
       <button {...attributes} {...listeners} className="text-neutral-600 hover:text-neutral-400 cursor-grab">
         <GripVertical className="w-4 h-4" />
       </button>
-      {product.imageUrl && (
+      {product.imageUrl ? (
         <img src={product.imageUrl} alt={trName} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
-      )}
-      {!product.imageUrl && (
+      ) : (
         <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center flex-shrink-0">
           <Image className="w-4 h-4 text-neutral-600" />
         </div>
@@ -242,12 +258,18 @@ function SortableProductRow({
   );
 }
 
+/* ─── ProductModal ───────────────────────────────────────────────── */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ğ/g, "g").replace(/ü/g, "u").replace(/ş/g, "s")
+    .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ç/g, "c")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function ProductModal({
-  product,
-  categories,
-  languages,
-  onClose,
-  onSave,
+  product, categories, languages, onClose, onSave,
 }: {
   product: Partial<Product> | null;
   categories: Category[];
@@ -256,14 +278,17 @@ function ProductModal({
   onSave: () => void;
 }) {
   const { toast } = useToast();
+
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
   const [price, setPrice] = useState(String(product?.price ?? ""));
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [calories, setCalories] = useState(String(product?.calories ?? ""));
-  const [allergens, setAllergens] = useState((product?.allergens ?? []).join(", "));
+  const [allergens, setAllergens] = useState<string[]>(product?.allergens ?? []);
+  const [customAllergen, setCustomAllergen] = useState("");
   const [nutrition, setNutrition] = useState<NutritionFacts>(product?.nutritionFacts ?? {});
+  const [nutritionOpen, setNutritionOpen] = useState(false);
   const [translations, setTranslations] = useState<Translation[]>(
     languages.map((l) => ({
       languageCode: l.code,
@@ -271,17 +296,39 @@ function ProductModal({
       description: product?.translations?.find((t) => t.languageCode === l.code)?.description ?? "",
       ingredients: product?.translations?.find((t) => t.languageCode === l.code)?.ingredients ?? "",
       allergenNote: product?.translations?.find((t) => t.languageCode === l.code)?.allergenNote ?? "",
-      specialNote: product?.translations?.find((t) => t.languageCode === l.code)?.specialNote ?? "",
     }))
   );
+  const [activeLang, setActiveLang] = useState(languages[0]?.code ?? "tr");
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [aiFlash, setAiFlash] = useState(false);
+
+  const trName = translations.find((t) => t.languageCode === "tr")?.name ?? "";
 
   function updateTr(code: string, field: keyof Omit<Translation, "languageCode">, value: string) {
-    setTranslations((prev) =>
-      prev.map((t) => (t.languageCode === code ? { ...t, [field]: value } : t))
-    );
+    setTranslations((prev) => prev.map((t) => (t.languageCode === code ? { ...t, [field]: value } : t)));
+  }
+
+  function handleTrNameChange(value: string) {
+    updateTr("tr", "name", value);
+    if (!product?.id) setSlug(slugify(value));
+  }
+
+  function toggleAllergen(key: string) {
+    setAllergens((prev) => prev.includes(key) ? prev.filter((a) => a !== key) : [...prev, key]);
+  }
+
+  function addCustomAllergen() {
+    const val = customAllergen.trim().toLowerCase();
+    if (val && !allergens.includes(val)) {
+      setAllergens((prev) => [...prev, val]);
+    }
+    setCustomAllergen("");
+  }
+
+  function removeAllergen(key: string) {
+    setAllergens((prev) => prev.filter((a) => a !== key));
   }
 
   function setNutrField(field: keyof NutritionFacts, value: string) {
@@ -290,30 +337,30 @@ function ProductModal({
   }
 
   async function handleAiGenerate() {
-    const trName = translations.find((t) => t.languageCode === "tr")?.name || slug;
-    if (!trName) { toast({ title: "Önce ürün adını girin", variant: "destructive" }); return; }
+    if (!trName) { toast({ title: "Önce Türkçe ürün adını girin", variant: "destructive" }); return; }
     setAiLoading(true);
     try {
       const cat = categories.find((c) => c.id === categoryId);
-      const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name ?? undefined;
+      const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name;
       const result = await apiFetch<{
         allergens?: string[];
         calories?: number;
         nutritionFacts?: NutritionFacts;
-        translations: Record<string, { name: string; description: string; ingredients: string; allergenNote: string; specialNote: string }>;
+        translations: Record<string, { name: string; description: string; ingredients: string; allergenNote: string }>;
       }>("/ai/generate", {
         method: "POST",
         body: JSON.stringify({
           productName: trName,
-          productId: product?.id ?? undefined,
+          productId: product?.id,
           category: catName,
           languages: languages.map((l) => l.code),
         }),
       });
 
-      if (result.allergens?.length) setAllergens(result.allergens.join(", "));
-      if (result.calories) setCalories(String(result.calories));
+      if (result.allergens?.length) setAllergens(result.allergens);
+      if (result.calories) { setCalories(String(result.calories)); if (!nutritionOpen) setNutritionOpen(true); }
       if (result.nutritionFacts) setNutrition(result.nutritionFacts);
+
       setTranslations((prev) =>
         prev.map((t) => {
           const gen = result.translations?.[t.languageCode];
@@ -324,11 +371,13 @@ function ProductModal({
             description: gen.description || t.description,
             ingredients: gen.ingredients || t.ingredients,
             allergenNote: gen.allergenNote || t.allergenNote,
-            specialNote: gen.specialNote || t.specialNote,
           };
         })
       );
-      toast({ title: "AI içerik üretildi ✓", description: "Alerjen ve kalori değerleri otomatik dolduruldu." });
+
+      setAiFlash(true);
+      setTimeout(() => setAiFlash(false), 2500);
+      toast({ title: "✦ AI içerik üretildi", description: "Tüm diller ve besin değerleri dolduruldu." });
     } catch (err) {
       toast({ title: "AI hatası", description: String(err), variant: "destructive" });
     } finally {
@@ -337,19 +386,17 @@ function ProductModal({
   }
 
   async function handleAiImageGenerate() {
-    const trName = translations.find((t) => t.languageCode === "tr")?.name || slug;
-    if (!trName) { toast({ title: "Önce ürün adını girin", variant: "destructive" }); return; }
+    if (!trName) { toast({ title: "Önce Türkçe ürün adını girin", variant: "destructive" }); return; }
     setAiImageLoading(true);
     try {
       const cat = categories.find((c) => c.id === categoryId);
-      const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name ?? undefined;
-      const trDesc = translations.find((t) => t.languageCode === "tr")?.description ?? undefined;
+      const trDesc = translations.find((t) => t.languageCode === "tr")?.description;
       const result = await apiFetch<{ imageUrl: string }>("/ai/generate-image", {
         method: "POST",
         body: JSON.stringify({
           productName: trName,
-          productId: product?.id ?? undefined,
-          category: catName,
+          productId: product?.id,
+          category: cat?.translations.find((t) => t.languageCode === "tr")?.name,
           notes: trDesc,
         }),
       });
@@ -374,7 +421,7 @@ function ProductModal({
         isActive,
         imageUrl: imageUrl || undefined,
         calories: calories ? parseInt(calories) : undefined,
-        allergens: allergens ? allergens.split(",").map((s) => s.trim()).filter(Boolean) : [],
+        allergens,
         nutritionFacts: nutriFilled ? nutrition : {},
         translations: translations.filter((t) => t.name),
       };
@@ -394,170 +441,312 @@ function ProductModal({
 
   const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
   const numInputCls = `${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
+  const flashCls = aiFlash ? "ring-1 ring-amber-500/60" : "";
+
+  const activeTr = translations.find((t) => t.languageCode === activeLang)!;
+  const customAllergens = allergens.filter((a) => !ALLERGEN_CHIPS.find((c) => c.key === a));
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800">
-          <h2 className="text-white font-semibold">{product?.id ? "Ürün Düzenle" : "Yeni Ürün"}</h2>
-          <button onClick={onClose}><X className="w-5 h-5 text-neutral-400" /></button>
+    <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <h2 className="text-white font-semibold">{product?.id ? "Ürün Düzenle" : "Yeni Ürün"}</h2>
+            {slug && <p className="text-xs text-neutral-500 mt-0.5 font-mono">/{slug}</p>}
+          </div>
+          <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <div className="px-6 py-5 space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Slug</label>
-              <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="margherita-pizza" className={inputCls} />
+
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+          {/* ── AI BUTTON ── */}
+          <button
+            type="button"
+            onClick={handleAiGenerate}
+            disabled={aiLoading || !trName}
+            className="w-full py-3.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+            style={
+              trName && !aiLoading
+                ? { background: "linear-gradient(135deg, #C9A84C22 0%, #C9A84C11 100%)", border: "1px solid #C9A84C55", color: "#C9A84C" }
+                : { background: "#1c1c1c", border: "1px solid #333", color: "#666" }
+            }
+          >
+            {aiLoading ? (
+              <>
+                <span className="animate-spin text-base">✦</span>
+                AI üretiyor — lütfen bekleyin...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                AI ile Tümünü Doldur
+                <span className="text-xs opacity-60 font-normal">açıklama · çeviri · alerjen · besin</span>
+              </>
+            )}
+          </button>
+
+          {/* ── TEMEL BİLGİLER ── */}
+          <div className="space-y-4">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Temel Bilgiler</p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1.5">Türkçe Ad *</label>
+                <input
+                  value={trName}
+                  onChange={(e) => handleTrNameChange(e.target.value)}
+                  placeholder="Örn: Izgara Levrek"
+                  className={`${inputCls} ${aiFlash && trName ? "ring-1 ring-amber-500/50 transition-all" : ""}`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1.5">Fiyat (TRY) *</label>
+                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className={numInputCls} />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Kategori</label>
-              <select value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} className={inputCls}>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug}
-                  </option>
-                ))}
-              </select>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1.5">Kategori</label>
+                <select value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))} className={inputCls}>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-400 mb-1.5">Kalori (kcal)</label>
+                <input
+                  type="number" value={calories} onChange={(e) => setCalories(e.target.value)} placeholder="—"
+                  className={`${numInputCls} ${aiFlash && calories ? "ring-1 ring-amber-500/50 transition-all" : ""}`}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 py-1">
+              <span className="text-sm text-neutral-300">Aktif</span>
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className={`w-10 h-5 rounded-full transition-colors relative ${isActive ? "bg-white" : "bg-neutral-700"}`}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+              <span className="text-xs text-neutral-500">{isActive ? "Menüde görünür" : "Gizli"}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Fiyat</label>
-              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className={numInputCls} />
-            </div>
-            <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Kalori (kcal)</label>
-              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} placeholder="—" className={numInputCls} />
-            </div>
-          </div>
-
+          {/* ── GÖRSEL ── */}
           <div className="space-y-2">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Görsel</p>
             <ImageUploader value={imageUrl} onChange={setImageUrl} />
             <button
               type="button"
               onClick={handleAiImageGenerate}
-              disabled={aiImageLoading}
-              className="flex items-center gap-2 w-full justify-center px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:text-white hover:border-neutral-500 disabled:opacity-50 transition-colors"
+              disabled={aiImageLoading || !trName}
+              className="flex items-center gap-2 w-full justify-center px-3 py-2.5 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg hover:text-white hover:border-neutral-500 disabled:opacity-40 transition-colors"
             >
               {aiImageLoading ? (
-                <>
-                  <span className="animate-spin text-xs">⟳</span>
-                  Görsel üretiliyor... (~15-30 sn)
-                </>
+                <><span className="animate-spin text-xs">⟳</span> Görsel üretiliyor… (~20-30 sn)</>
               ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  AI ile Görsel Üret (GPT-4o)
-                </>
+                <><Sparkles className="w-4 h-4 text-amber-500" /> AI ile Görsel Üret (GPT-4o)</>
               )}
             </button>
           </div>
 
-          <div>
-            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Alerjenler (virgülle ayırın)</label>
-            <input value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="gluten, süt, yumurta" className={inputCls} />
-          </div>
-
-          <div>
-            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-3">Besin Değerleri (porsiyon başına)</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-neutral-500 mb-1">Enerji (kcal)</label>
-                <input type="number" value={nutrition.energy ?? ""} onChange={(e) => setNutrField("energy", e.target.value)} placeholder="—" className={numInputCls} />
-              </div>
-              <div>
-                <label className="block text-xs text-neutral-500 mb-1">Protein (g)</label>
-                <input type="number" value={nutrition.protein ?? ""} onChange={(e) => setNutrField("protein", e.target.value)} placeholder="—" className={numInputCls} />
-              </div>
-              <div>
-                <label className="block text-xs text-neutral-500 mb-1">Karbonhidrat (g)</label>
-                <input type="number" value={nutrition.carbs ?? ""} onChange={(e) => setNutrField("carbs", e.target.value)} placeholder="—" className={numInputCls} />
-              </div>
-              <div>
-                <label className="block text-xs text-neutral-500 mb-1">Yağ (g)</label>
-                <input type="number" value={nutrition.fat ?? ""} onChange={(e) => setNutrField("fat", e.target.value)} placeholder="—" className={numInputCls} />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-neutral-300">Aktif</label>
-            <button
-              onClick={() => setIsActive(!isActive)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${isActive ? "bg-white" : "bg-neutral-700"}`}
-            >
-              <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler & İçerik</label>
-              <button
-                onClick={handleAiGenerate}
-                disabled={aiLoading}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-full hover:text-white hover:border-white transition-colors disabled:opacity-50"
-              >
-                <Sparkles className="w-3 h-3" />
-                {aiLoading ? "Üretiliyor..." : "AI ile Doldur"}
-              </button>
-            </div>
-            <div className="flex items-start gap-2 mb-3 px-3 py-2 bg-amber-950/40 border border-amber-800/50 rounded-lg">
-              <Sparkles className="w-3 h-3 text-amber-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-400/90 leading-relaxed">
-                AI tarafından üretilen içerikler hatalı olabilir. Yayınlamadan önce tüm çevirileri ve açıklamaları gözden geçiriniz.
-              </p>
-            </div>
-            <div className="space-y-5">
-              {languages.map((lang) => {
-                const tr = translations.find((t) => t.languageCode === lang.code)!;
+          {/* ── DİL SEKMELERİ ── */}
+          <div className={`rounded-xl border transition-all ${flashCls || "border-neutral-800"}`}>
+            <div className="flex items-center border-b border-neutral-800 px-1 pt-1">
+              {languages.map((l) => {
+                const tr = translations.find((t) => t.languageCode === l.code);
+                const filled = !!(tr?.name || tr?.description);
                 return (
-                  <div key={lang.code} className="space-y-2 pb-5 border-b border-neutral-800 last:border-0 last:pb-0">
-                    <div className="flex items-center gap-2 text-xs text-neutral-400">
-                      <span>{LANG_FLAGS[lang.code] ?? "🌐"}</span>
-                      <span className="uppercase font-medium">{lang.name}</span>
-                    </div>
-                    <input
-                      value={tr.name}
-                      onChange={(e) => updateTr(lang.code, "name", e.target.value)}
-                      placeholder="Ürün adı *"
-                      className={inputCls}
-                    />
-                    <textarea
-                      value={tr.description ?? ""}
-                      onChange={(e) => updateTr(lang.code, "description", e.target.value)}
-                      placeholder="Açıklama"
-                      rows={2}
-                      className={`${inputCls} resize-none`}
-                    />
-                    <input
-                      value={tr.ingredients ?? ""}
-                      onChange={(e) => updateTr(lang.code, "ingredients", e.target.value)}
-                      placeholder="İçindekiler (virgülle)"
-                      className={inputCls}
-                    />
-                    <input
-                      value={tr.allergenNote ?? ""}
-                      onChange={(e) => updateTr(lang.code, "allergenNote", e.target.value)}
-                      placeholder="Alerjen notu"
-                      className={inputCls}
-                    />
-                    <input
-                      value={tr.specialNote ?? ""}
-                      onChange={(e) => updateTr(lang.code, "specialNote", e.target.value)}
-                      placeholder="Özel not / şef tavsiyesi"
-                      className={inputCls}
-                    />
-                  </div>
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => setActiveLang(l.code)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium rounded-t-lg transition-colors relative ${
+                      activeLang === l.code
+                        ? "text-white bg-neutral-800"
+                        : "text-neutral-500 hover:text-neutral-300"
+                    }`}
+                  >
+                    <span>{LANG_FLAGS[l.code] ?? "🌐"}</span>
+                    <span>{LANG_LABELS[l.code] ?? l.code.toUpperCase()}</span>
+                    {filled && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 absolute top-2 right-1.5" />
+                    )}
+                  </button>
                 );
               })}
             </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Ad</label>
+                <input
+                  value={activeTr?.name ?? ""}
+                  onChange={(e) => {
+                    if (activeLang === "tr") handleTrNameChange(e.target.value);
+                    else updateTr(activeLang, "name", e.target.value);
+                  }}
+                  placeholder="Ürün adı"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Açıklama</label>
+                <textarea
+                  value={activeTr?.description ?? ""}
+                  onChange={(e) => updateTr(activeLang, "description", e.target.value)}
+                  placeholder="Lezzetli bir açıklama..."
+                  rows={3}
+                  className={`${inputCls} resize-none`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">İçindekiler</label>
+                <input
+                  value={activeTr?.ingredients ?? ""}
+                  onChange={(e) => updateTr(activeLang, "ingredients", e.target.value)}
+                  placeholder="Malzemeler virgülle ayrılmış"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Alerjen Notu</label>
+                <input
+                  value={activeTr?.allergenNote ?? ""}
+                  onChange={(e) => updateTr(activeLang, "allergenNote", e.target.value)}
+                  placeholder="Örn: Gluten ve süt ürünleri içerir."
+                  className={inputCls}
+                />
+              </div>
+            </div>
           </div>
+
+          {/* ── ALERJENLER ── */}
+          <div className="space-y-3">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-widest">Alerjenler</p>
+            <div className="flex flex-wrap gap-2">
+              {ALLERGEN_CHIPS.map((chip) => {
+                const active = allergens.includes(chip.key);
+                return (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => toggleAllergen(chip.key)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+                    style={
+                      active
+                        ? { background: "#C9A84C22", borderColor: "#C9A84C88", color: "#C9A84C" }
+                        : { background: "transparent", borderColor: "#333", color: "#666" }
+                    }
+                  >
+                    <span>{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {customAllergens.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {customAllergens.map((a) => (
+                  <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border border-neutral-700 text-neutral-400">
+                    {a}
+                    <button type="button" onClick={() => removeAllergen(a)} className="text-neutral-600 hover:text-red-400 ml-0.5">×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={customAllergen}
+                onChange={(e) => setCustomAllergen(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomAllergen(); } }}
+                placeholder="Özel alerjen ekle..."
+                className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-white"
+              />
+              <button
+                type="button"
+                onClick={addCustomAllergen}
+                className="px-3 py-1.5 text-xs bg-neutral-800 border border-neutral-700 text-neutral-400 rounded-lg hover:text-white transition-colors"
+              >
+                Ekle
+              </button>
+            </div>
+          </div>
+
+          {/* ── BESİN DEĞERLERİ (collapsible) ── */}
+          <div className="border border-neutral-800 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setNutritionOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 text-xs text-neutral-400 hover:text-white transition-colors"
+            >
+              <span className="uppercase tracking-widest">Besin Değerleri (porsiyon)</span>
+              {nutritionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {nutritionOpen && (
+              <div className="px-4 pb-4 grid grid-cols-2 gap-3">
+                {([
+                  { field: "energy" as const, label: "Enerji (kcal)" },
+                  { field: "protein" as const, label: "Protein (g)" },
+                  { field: "carbs" as const, label: "Karbonhidrat (g)" },
+                  { field: "fat" as const, label: "Yağ (g)" },
+                ] as const).map(({ field, label }) => (
+                  <div key={field}>
+                    <label className="block text-xs text-neutral-500 mb-1">{label}</label>
+                    <input
+                      type="number"
+                      value={nutrition[field] ?? ""}
+                      onChange={(e) => setNutrField(field, e.target.value)}
+                      placeholder="—"
+                      className={`${numInputCls} ${aiFlash && nutrition[field] ? "ring-1 ring-amber-500/50 transition-all" : ""}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── SLUG (küçük alan) ── */}
+          <div>
+            <label className="block text-xs text-neutral-500 mb-1 uppercase tracking-widest">URL Slug</label>
+            <input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="ornek-urun-adi" className={inputCls} />
+          </div>
+
+          <div className="flex items-start gap-2 px-3 py-2 bg-amber-950/30 border border-amber-800/40 rounded-lg">
+            <Sparkles className="w-3 h-3 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-xs text-amber-700 leading-relaxed">
+              AI tarafından üretilen içerikler hatalı olabilir. Yayınlamadan önce tüm sekmeleri kontrol edin.
+            </p>
+          </div>
+
         </div>
-        <div className="flex gap-3 px-6 py-4 border-t border-neutral-800">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-white transition-colors">İptal</button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-100 disabled:opacity-50 transition-colors">
-            {saving ? "Kaydediliyor..." : "Kaydet"}
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-neutral-800 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-white transition-colors"
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-100 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Kaydediliyor..." : product?.id ? "Güncelle" : "Ürün Ekle"}
           </button>
         </div>
       </div>
@@ -565,6 +754,7 @@ function ProductModal({
   );
 }
 
+/* ─── AdminProducts ───────────────────────────────────────────────── */
 export default function AdminProducts() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
@@ -585,10 +775,7 @@ export default function AdminProducts() {
     setProducts(prods.sort((a, b) => a.sortOrder - b.sortOrder));
     setCategories(cats);
     setLanguages(langs);
-
-    apiFetch<Record<number, number>>("/analytics/product-views")
-      .then(setViewCounts)
-      .catch(() => {});
+    apiFetch<Record<number, number>>("/analytics/product-views").then(setViewCounts).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
@@ -615,15 +802,10 @@ export default function AdminProducts() {
         return ai !== -1 && bi !== -1 ? ai - bi : 0;
       });
     });
-    await apiFetch("/products/reorder", {
-      method: "POST",
-      body: JSON.stringify({ ids: reordered.map((p) => p.id) }),
-    });
+    await apiFetch("/products/reorder", { method: "POST", body: JSON.stringify({ ids: reordered.map((p) => p.id) }) });
   }
 
-  const filteredProducts = filterCat === "all"
-    ? products
-    : products.filter((p) => p.categoryId === filterCat);
+  const filteredProducts = filterCat === "all" ? products : products.filter((p) => p.categoryId === filterCat);
 
   return (
     <div className="space-y-6 max-w-3xl">

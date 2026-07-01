@@ -14,23 +14,23 @@ function parseGcsPath(path: string): { bucketName: string; objectName: string } 
   return { bucketName: parts[0], objectName: parts.slice(1).join("/") };
 }
 
-async function uploadImageBufferToStorage(buffer: Buffer): Promise<string> {
+async function uploadImageBufferToStorage(buffer: Buffer, ext: "jpg" | "png" = "jpg"): Promise<string> {
   const privateDir = process.env.PRIVATE_OBJECT_DIR;
   if (!privateDir) throw new Error("Object storage yapılandırılmamış");
 
   const uuid = randomUUID();
   const basePath = privateDir.replace(/\/$/, "");
-  const fullPath = `${basePath}/ai-images/${uuid}.png`;
+  const fullPath = `${basePath}/ai-images/${uuid}.${ext}`;
+  const contentType = ext === "jpg" ? "image/jpeg" : "image/png";
 
   const { bucketName, objectName } = parseGcsPath(fullPath);
-
   const bucket = objectStorageClient.bucket(bucketName);
   const file = bucket.file(objectName);
 
-  await file.save(buffer, { contentType: "image/png", resumable: false });
+  await file.save(buffer, { contentType, resumable: false });
   await setObjectAclPolicy(file, { owner: "system", visibility: "public" });
 
-  return `/api/storage/objects/ai-images/${uuid}.png`;
+  return `/api/storage/objects/ai-images/${uuid}.${ext}`;
 }
 
 const PRODUCT_PROMPTS: { keywords: string[]; style: string }[] = [
@@ -60,6 +60,14 @@ const PRODUCT_PROMPTS: { keywords: string[]; style: string }[] = [
   },
 ];
 
+const BACKGROUND_TEXTURES = [
+  "dark slate stone surface",
+  "aged oak wooden board",
+  "brushed concrete countertop",
+  "black marble with subtle veining",
+  "charcoal linen tablecloth",
+];
+
 const VARIATIONS = [
   "natural window light from the left",
   "soft diffused natural light from above",
@@ -70,19 +78,13 @@ const VARIATIONS = [
 
 function buildImagePrompt(productName: string, category?: string, notes?: string): string {
   const combined = `${productName} ${category ?? ""} ${notes ?? ""}`.toLowerCase();
-
   let style = "overhead shot on dark slate plate, perfectly plated with microgreens garnish, shallow depth of field, restaurant quality presentation";
-
   for (const { keywords, style: s } of PRODUCT_PROMPTS) {
-    if (keywords.some((kw) => combined.includes(kw))) {
-      style = s;
-      break;
-    }
+    if (keywords.some((kw) => combined.includes(kw))) { style = s; break; }
   }
-
   const variation = VARIATIONS[Math.floor(Math.random() * VARIATIONS.length)];
-
-  return `Professional food photography of "${productName}", ${style}, ${variation}, ultra realistic, 8K quality, Turkish cuisine aesthetics, no text, no watermark, food only`;
+  const texture = BACKGROUND_TEXTURES[Math.floor(Math.random() * BACKGROUND_TEXTURES.length)];
+  return `Professional food photography of "${productName}", ${style}, ${variation}, ${texture}, ultra realistic, 8K quality, Turkish cuisine aesthetics, no text, no watermark, food only`;
 }
 
 router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> => {
@@ -93,18 +95,11 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
     notes?: string;
   };
 
-  if (!productName) {
-    res.status(400).json({ error: "Ürün adı gerekli" });
-    return;
-  }
+  if (!productName) { res.status(400).json({ error: "Ürün adı gerekli" }); return; }
 
   const [settings] = await db.select().from(settingsTable).limit(1);
   const apiKey = settings?.openAiKey || process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    res.status(400).json({ error: "OpenAI API anahtarı ayarlarda yapılandırılmamış" });
-    return;
-  }
+  if (!apiKey) { res.status(400).json({ error: "OpenAI API anahtarı ayarlarda yapılandırılmamış" }); return; }
 
   const prompt = buildImagePrompt(productName, category, notes);
   let success = false;
@@ -112,16 +107,14 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
   try {
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-image-1",
         prompt,
         n: 1,
         size: "1024x1024",
-        output_format: "b64_json",
+        output_format: "jpeg",
+        output_compression: 82,
       }),
       signal: AbortSignal.timeout(120_000),
     });
@@ -129,11 +122,8 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
     if (!response.ok) {
       const errText = await response.text();
       await db.insert(aiGenerationLogsTable).values({
-        productId: productId ?? null,
-        productName,
-        model: "gpt-image-1",
-        success: false,
-        errorMessage: `OpenAI HTTP ${response.status}: ${errText.slice(0, 500)}`,
+        productId: productId ?? null, productName, model: "gpt-image-1",
+        success: false, errorMessage: `OpenAI HTTP ${response.status}: ${errText.slice(0, 500)}`,
       });
       res.status(502).json({ error: "Görsel üretilemedi. OpenAI API hatası.", detail: errText.slice(0, 200) });
       return;
@@ -141,32 +131,22 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
 
     const data = await response.json() as { data?: Array<{ b64_json?: string }> };
     const b64 = data.data?.[0]?.b64_json;
-
-    if (!b64) {
-      res.status(502).json({ error: "OpenAI görsel verisi boş döndü" });
-      return;
-    }
+    if (!b64) { res.status(502).json({ error: "OpenAI görsel verisi boş döndü" }); return; }
 
     const buffer = Buffer.from(b64, "base64");
-    const servingUrl = await uploadImageBufferToStorage(buffer);
+    const servingUrl = await uploadImageBufferToStorage(buffer, "jpg");
     success = true;
 
     await db.insert(aiGenerationLogsTable).values({
-      productId: productId ?? null,
-      productName,
-      model: "gpt-image-1",
-      success: true,
+      productId: productId ?? null, productName, model: "gpt-image-1", success: true,
     });
 
     res.json({ imageUrl: servingUrl, prompt });
   } catch (err) {
     if (!success) {
       await db.insert(aiGenerationLogsTable).values({
-        productId: productId ?? null,
-        productName,
-        model: "gpt-image-1",
-        success: false,
-        errorMessage: String(err).slice(0, 500),
+        productId: productId ?? null, productName, model: "gpt-image-1",
+        success: false, errorMessage: String(err).slice(0, 500),
       }).catch(() => {});
     }
     res.status(500).json({ error: "Görsel üretimi başarısız oldu", detail: String(err).slice(0, 200) });
@@ -183,21 +163,12 @@ router.post("/ai/generate", requireAuth, async (req, res): Promise<void> => {
 
   const [settings] = await db.select().from(settingsTable).limit(1);
   const apiKey = settings?.openAiKey || process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    res.status(400).json({ error: "OpenAI API key not configured in settings" });
-    return;
-  }
+  if (!apiKey) { res.status(400).json({ error: "OpenAI API key not configured in settings" }); return; }
 
   const targetLangs = languages?.length ? languages : ["tr", "en", "ru", "ar"];
-  const langNames: Record<string, string> = {
-    tr: "Turkish",
-    en: "English",
-    ru: "Russian",
-    ar: "Arabic",
-  };
+  const langNames: Record<string, string> = { tr: "Turkish", en: "English", ru: "Russian", ar: "Arabic" };
 
-  const prompt = `You are a professional restaurant menu copywriter and nutritionist.
+  const prompt = `You are a professional restaurant menu copywriter and nutritionist for an upscale Turkish restaurant.
 Generate complete menu content for the following dish:
 Product: "${productName}"${category ? `\nCategory: "${category}"` : ""}
 
@@ -207,19 +178,18 @@ Respond ONLY with a valid JSON object matching this exact shape:
   "nutritionFacts": { "energy": number, "protein": number, "carbs": number, "fat": number },
   "calories": number,
   "translations": {
-    ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "...", "ingredients": "...", "allergenNote": "...", "specialNote": "..." }`).join(",\n    ")}
+    ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "...", "ingredients": "...", "allergenNote": "..." }`).join(",\n    ")}
   }
 }
 
 Rules:
-- allergens: array of common allergen names present (e.g. ["gluten", "milk", "eggs"])
-- nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams
+- allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam
+- nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams (realistic for a restaurant portion)
 - calories: total kcal (same as nutritionFacts.energy)
-- translations[lang].name: dish name in that language, concise and appealing
-- translations[lang].description: sensory description under 60 words
+- translations[lang].name: dish name in that language, concise and appealing (do NOT include brand names)
+- translations[lang].description: sensory and appetizing description, max 60 words, start with uppercase
 - translations[lang].ingredients: comma-separated list of main ingredients in that language
-- translations[lang].allergenNote: allergen warning sentence in that language (empty string if none)
-- translations[lang].specialNote: chef recommendation or serving suggestion in that language (can be empty string)
+- translations[lang].allergenNote: allergen warning sentence in that language (empty string if no allergens)
 - Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
 
   let tokensUsed: number | undefined;
@@ -228,14 +198,11 @@ Rules:
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        temperature: 0.6,
         response_format: { type: "json_object" },
       }),
     });
@@ -243,11 +210,8 @@ Rules:
     if (!response.ok) {
       const err = await response.text();
       await db.insert(aiGenerationLogsTable).values({
-        productId: productId ?? null,
-        productName,
-        model: "gpt-4o-mini",
-        success: false,
-        errorMessage: `OpenAI HTTP ${response.status}: ${err.slice(0, 500)}`,
+        productId: productId ?? null, productName, model: "gpt-4o-mini",
+        success: false, errorMessage: `OpenAI HTTP ${response.status}: ${err.slice(0, 500)}`,
       });
       res.status(502).json({ error: "OpenAI error", detail: err });
       return;
@@ -260,22 +224,15 @@ Rules:
     success = true;
 
     await db.insert(aiGenerationLogsTable).values({
-      productId: productId ?? null,
-      productName,
-      model: "gpt-4o-mini",
-      tokensUsed,
-      success: true,
+      productId: productId ?? null, productName, model: "gpt-4o-mini", tokensUsed, success: true,
     });
 
     res.json(parsed);
   } catch (err) {
     if (!success) {
       await db.insert(aiGenerationLogsTable).values({
-        productId: productId ?? null,
-        productName,
-        model: "gpt-4o-mini",
-        success: false,
-        errorMessage: String(err).slice(0, 500),
+        productId: productId ?? null, productName, model: "gpt-4o-mini",
+        success: false, errorMessage: String(err).slice(0, 500),
       }).catch(() => {});
     }
     res.status(500).json({ error: "AI generation failed", detail: String(err) });
