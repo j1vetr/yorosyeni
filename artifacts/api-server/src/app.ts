@@ -28,6 +28,9 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 const app: Express = express();
 
+// Trust nginx reverse proxy — enables req.secure + correct IP via X-Forwarded-* headers
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
@@ -86,7 +89,9 @@ app.use(
       // SameSite: "lax" is safe because the API and frontend are co-hosted
       // on the same domain (both served through the Replit proxy).
       // "none" would require Secure + broad CORS, creating unnecessary exposure.
-      secure: isProd,
+      // 'auto' = Express checks req.secure (respects trust proxy + X-Forwarded-Proto)
+      // Works for both HTTP and HTTPS; no hardcoded boolean needed
+      secure: isProd ? "auto" : false,
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
