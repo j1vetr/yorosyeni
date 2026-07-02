@@ -66,6 +66,7 @@ export const categoriesTable = pgTable("categories", {
   id: serial("id").primaryKey(),
   slug: varchar("slug", { length: 128 }).notNull().unique(),
   imageUrl: text("image_url"),
+  emoji: varchar("emoji", { length: 8 }),
   sortOrder: integer("sort_order").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

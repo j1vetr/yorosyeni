@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, X, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, X, GripVertical, Loader2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -28,6 +28,7 @@ interface Category {
   id: number;
   slug: string;
   imageUrl?: string;
+  emoji?: string;
   sortOrder: number;
   isActive: boolean;
   translations: Translation[];
@@ -40,6 +41,116 @@ interface Language {
 }
 
 const LANG_FLAGS: Record<string, string> = { tr: "🇹🇷", en: "🇬🇧", ru: "🇷🇺", ar: "🇸🇦" };
+
+const EMOJI_GROUPS = [
+  {
+    label: "Ana Yemekler",
+    emojis: ["🍖", "🥩", "🍗", "🥓", "🌮", "🌯", "🥙", "🧆", "🥘", "🍲", "🫕", "🥗", "🍱"],
+  },
+  {
+    label: "Pizza & Pide",
+    emojis: ["🍕", "🫓", "🥪", "🍔", "🌭", "🥚", "🍳"],
+  },
+  {
+    label: "Deniz Ürünleri",
+    emojis: ["🦞", "🦀", "🦑", "🍤", "🐟", "🐠", "🦐", "🍣", "🍱"],
+  },
+  {
+    label: "Çorba & Salata",
+    emojis: ["🍜", "🍝", "🥣", "🥗", "🥬", "🥦", "🫑", "🥕", "🧅", "🫛"],
+  },
+  {
+    label: "Tatlı & Pasta",
+    emojis: ["🍰", "🎂", "🧁", "🍮", "🍯", "🍩", "🍪", "🍫", "🍬", "🍭", "🧇", "🥞", "🍦", "🍨", "🍧", "🍡"],
+  },
+  {
+    label: "İçecek",
+    emojis: ["☕", "🍵", "🧃", "🥤", "🧋", "🍺", "🍻", "🥂", "🍷", "🥃", "🍹", "🍸", "🫖", "🧊"],
+  },
+  {
+    label: "Kahvaltı",
+    emojis: ["🥐", "🥖", "🍞", "🧀", "🥚", "🍳", "🥞", "🧈", "🍯", "🫐", "🍓", "🍇"],
+  },
+  {
+    label: "Meyve & Sebze",
+    emojis: ["🍎", "🍊", "🍋", "🍇", "🍓", "🥝", "🍑", "🍒", "🥭", "🍍", "🌽", "🥑"],
+  },
+];
+
+function EmojiPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (emoji: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="w-10 h-10 flex items-center justify-center text-xl bg-neutral-800 border border-neutral-700 rounded-lg hover:border-neutral-500 transition-colors"
+          title="Emoji seç"
+        >
+          {value || "＋"}
+        </button>
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="veya yaz…"
+          maxLength={2}
+          className="w-20 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white"
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-neutral-500 hover:text-white transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-2 left-0 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-4 w-72 max-h-72 overflow-y-auto">
+          {EMOJI_GROUPS.map((group) => (
+            <div key={group.label} className="mb-3">
+              <div className="text-xs text-neutral-500 uppercase tracking-widest mb-1.5">{group.label}</div>
+              <div className="flex flex-wrap gap-1">
+                {group.emojis.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => { onChange(emoji); setOpen(false); }}
+                    className="w-8 h-8 flex items-center justify-center text-lg rounded-md hover:bg-neutral-700 transition-colors"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SortableRow({
   cat,
@@ -64,7 +175,10 @@ function SortableRow({
         <GripVertical className="w-4 h-4" />
       </button>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-white truncate">{trName}</div>
+        <div className="text-sm font-medium text-white truncate">
+          {cat.emoji && <span className="mr-1.5">{cat.emoji}</span>}
+          {trName}
+        </div>
         <div className="text-xs text-neutral-500">{cat.slug}</div>
       </div>
       <div className="flex items-center gap-1">
@@ -96,6 +210,7 @@ function CategoryModal({
   const { toast } = useToast();
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
+  const [emoji, setEmoji] = useState(category?.emoji ?? "");
   const [translations, setTranslations] = useState<Translation[]>(
     languages.map((l) => ({
       languageCode: l.code,
@@ -104,11 +219,47 @@ function CategoryModal({
     }))
   );
   const [saving, setSaving] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
+  const trTurkish = translations.find((t) => t.languageCode === "tr");
+  const canTranslate = !!trTurkish?.name?.trim();
+  const nonTrLanguages = languages.filter((l) => l.code !== "tr");
 
   function updateTr(code: string, field: "name" | "description", value: string) {
     setTranslations((prev) =>
       prev.map((t) => (t.languageCode === code ? { ...t, [field]: value } : t))
     );
+  }
+
+  async function handleAiTranslate() {
+    if (!canTranslate) return;
+    setTranslating(true);
+    try {
+      const result = await apiFetch<{ translations: Record<string, { name: string; description: string }> }>(
+        "/ai/translate-category",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            categoryName: trTurkish!.name,
+            languages: nonTrLanguages.map((l) => l.code),
+          }),
+        }
+      );
+      if (result.translations) {
+        setTranslations((prev) =>
+          prev.map((t) => {
+            const ai = result.translations[t.languageCode];
+            if (!ai) return t;
+            return { ...t, name: ai.name || t.name, description: ai.description || t.description };
+          })
+        );
+        toast({ title: "Çeviriler tamamlandı" });
+      }
+    } catch (err) {
+      toast({ title: "Çeviri hatası", description: String(err), variant: "destructive" });
+    } finally {
+      setTranslating(false);
+    }
   }
 
   async function handleSave() {
@@ -118,6 +269,7 @@ function CategoryModal({
       const payload = {
         slug,
         isActive,
+        emoji: emoji || null,
         translations: translations.filter((t) => t.name),
       };
       if (category?.id) {
@@ -151,6 +303,12 @@ function CategoryModal({
               className="w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white"
             />
           </div>
+
+          <div>
+            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Emoji</label>
+            <EmojiPicker value={emoji} onChange={setEmoji} />
+          </div>
+
           <div className="flex items-center gap-3">
             <label className="text-sm text-neutral-300">Aktif</label>
             <button
@@ -160,8 +318,24 @@ function CategoryModal({
               <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
             </button>
           </div>
+
           <div>
-            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-3">Çeviriler</label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler</label>
+              <button
+                type="button"
+                onClick={handleAiTranslate}
+                disabled={!canTranslate || translating}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-neutral-800 border border-neutral-700 text-neutral-300 hover:border-white hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {translating ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <span>✦</span>
+                )}
+                AI ile Çevir
+              </button>
+            </div>
             <div className="space-y-4">
               {languages.map((lang) => {
                 const tr = translations.find((t) => t.languageCode === lang.code)!;

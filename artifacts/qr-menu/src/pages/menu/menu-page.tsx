@@ -31,6 +31,7 @@ interface CategoryData {
   name: string;
   description?: string;
   imageUrl?: string;
+  emoji?: string;
   products: ProductData[];
 }
 
@@ -503,7 +504,7 @@ export default function MenuPage() {
                       : { color: "#737373" }
                   }
                 >
-                  {cat.name}
+                  {cat.emoji && <span className="mr-1">{cat.emoji}</span>}{cat.name}
                 </button>
               ))}
             </div>
@@ -521,7 +522,9 @@ export default function MenuPage() {
             className="pt-8"
           >
             <div className="mb-4">
-              <h2 className="text-xl font-bold text-neutral-900">{cat.name}</h2>
+              <h2 className="text-xl font-bold text-neutral-900">
+                {cat.emoji && <span className="mr-2">{cat.emoji}</span>}{cat.name}
+              </h2>
               {cat.description && (
                 <p className="text-sm text-neutral-500 mt-1">{cat.description}</p>
               )}

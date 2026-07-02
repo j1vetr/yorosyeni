@@ -110,6 +110,7 @@ async function buildMenuResponse(slug: string, lang: string) {
         name: catName,
         description: catDesc,
         imageUrl: cat.imageUrl,
+        emoji: cat.emoji ?? null,
         products: productsWithTr,
       };
     })

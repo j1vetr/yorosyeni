@@ -241,4 +241,62 @@ Rules:
   }
 });
 
+router.post("/ai/translate-category", requireAuth, async (req, res): Promise<void> => {
+  const { categoryName, languages } = req.body as {
+    categoryName: string;
+    languages?: string[];
+  };
+
+  if (!categoryName) { res.status(400).json({ error: "Kategori adı gerekli" }); return; }
+
+  const [settings] = await db.select().from(settingsTable).limit(1);
+  const apiKey = settings?.openAiKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) { res.status(400).json({ error: "OpenAI API anahtarı ayarlarda yapılandırılmamış" }); return; }
+
+  const targetLangs = languages?.length ? languages : ["en", "ru", "ar"];
+  const langNames: Record<string, string> = { tr: "Turkish", en: "English", ru: "Russian", ar: "Arabic" };
+
+  const prompt = `You are a professional restaurant menu translator.
+Translate the following Turkish restaurant category name into the requested languages.
+Category name (Turkish): "${categoryName}"
+
+Respond ONLY with a valid JSON object matching this exact shape:
+{
+  "translations": {
+    ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "..." }`).join(",\n    ")}
+  }
+}
+
+Rules:
+- name: concise, natural-sounding category name in that language (do not just transliterate, use natural local phrasing)
+- description: optional short appetizing subtitle for the category, max 10 words, in that language (can be empty string "")
+- Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      res.status(502).json({ error: "OpenAI error", detail: err });
+      return;
+    }
+
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const content = data.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(content);
+    res.json(parsed);
+  } catch (err) {
+    res.status(500).json({ error: "Çeviri başarısız oldu", detail: String(err) });
+  }
+});
+
 export default router;
