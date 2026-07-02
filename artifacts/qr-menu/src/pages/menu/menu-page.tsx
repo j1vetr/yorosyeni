@@ -359,13 +359,19 @@ export default function MenuPage() {
       setMenu(data);
       if (data.categories[0]) setActiveCategory(data.categories[0].id);
 
-      document.title = data.restaurant.name
-        ? `${data.restaurant.name} — Menü`
-        : "Menü";
-      const metaDesc = document.querySelector<HTMLMetaElement>(
-        'meta[name="description"]'
-      );
-      if (metaDesc) metaDesc.content = `${data.restaurant.name} dijital menüsü`;
+      const rName = data.restaurant.name || "Menü";
+      const pageTitle = data.restaurant.name ? `${rName} — Menü` : "Menü";
+      const pageDesc = `${rName} dijital menüsü. Tüm yemek ve içeceklerimizi keşfedin.`;
+      document.title = pageTitle;
+      const setMeta = (sel: string, val: string) => {
+        const el = document.querySelector<HTMLMetaElement>(sel);
+        if (el) el.content = val;
+      };
+      setMeta('meta[name="description"]', pageDesc);
+      setMeta('meta[property="og:title"]', pageTitle);
+      setMeta('meta[property="og:description"]', pageDesc);
+      setMeta('meta[name="twitter:title"]', pageTitle);
+      setMeta('meta[name="twitter:description"]', pageDesc);
     } catch {
       setError("Menü yüklenemedi");
     } finally {

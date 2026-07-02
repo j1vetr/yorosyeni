@@ -101,7 +101,7 @@ export function useMenuData() {
     try {
       const data = await apiFetch<MenuData>(`/menu?lang=${language}`);
       setMenu(data);
-      document.title = data.restaurant.name ? `${data.restaurant.name} — Menü` : "Menü";
+      if (data.restaurant.name) document.title = `${data.restaurant.name} — Menü`;
     } catch {
       setError("Menü yüklenemedi");
     } finally {
