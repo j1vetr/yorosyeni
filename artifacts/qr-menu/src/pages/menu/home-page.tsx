@@ -203,7 +203,7 @@ export default function HomePage() {
                   border: activeSlug === cat.slug ? `2px solid ${accent}` : "2px solid transparent",
                 }}
               >
-                {getCategoryIcon(cat.slug)}
+                {cat.emoji || getCategoryIcon(cat.slug)}
               </div>
               <span
                 className="text-[10px] font-medium text-center max-w-[56px] leading-tight"
