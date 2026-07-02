@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
+import { normalizeAllergenKey } from "@/lib/allergens";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
@@ -341,7 +342,7 @@ function ProductModal({
 
   /* ── Details section ── */
   const [detailsOpen,  setDetailsOpen]  = useState(!!(product?.id)); // open when editing
-  const [allergens,    setAllergens]    = useState<string[]>((product?.allergens ?? []).map((a) => a.trim().toLowerCase()));
+  const [allergens,    setAllergens]    = useState<string[]>((product?.allergens ?? []).map(normalizeAllergenKey));
   const [customAllergen, setCustomAllergen] = useState("");
   const [nutrition,    setNutrition]    = useState<NutritionFacts>(product?.nutritionFacts ?? {});
   const [translations, setTranslations] = useState<Translation[]>(
@@ -383,7 +384,8 @@ function ProductModal({
   }
 
   function toggleAllergen(key: string) {
-    setAllergens((prev) => prev.includes(key) ? prev.filter((a) => a !== key) : [...prev, key]);
+    const norm = normalizeAllergenKey(key);
+    setAllergens((prev) => prev.includes(norm) ? prev.filter((a) => a !== norm) : [...prev, norm]);
   }
 
   function addCustomAllergen() {
@@ -417,7 +419,7 @@ function ProductModal({
         body: JSON.stringify({ productName: trName, productId: product?.id, category: catName, languages: languages.map((l) => l.code) }),
       });
 
-      if (result.allergens?.length) setAllergens(result.allergens.map((a) => a.trim().toLowerCase()));
+      if (result.allergens?.length) setAllergens(result.allergens.map(normalizeAllergenKey));
       if (result.calories)       setCalories(String(result.calories));
       if (result.nutritionFacts) setNutrition(result.nutritionFacts);
 
@@ -856,16 +858,21 @@ export default function AdminProducts() {
     setBulkOptimizing(true);
     setBulkProgress({ done: 0, total: withImages.length });
     let done = 0;
+    let failed = 0;
     for (const p of withImages) {
       try {
         const blob = await compressFromUrl(p.imageUrl!);
         const url  = await uploadBlob(blob, "optimized.jpg");
         await apiFetch(`/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ imageUrl: url }) });
-      } catch { /* skip failed items silently */ }
+      } catch { failed++; }
       done++;
       setBulkProgress({ done, total: withImages.length });
     }
-    toast({ title: "Toplu optimizasyon tamamlandı", description: `${withImages.length} görsel işlendi` });
+    const ok = withImages.length - failed;
+    toast({
+      title: "Toplu optimizasyon tamamlandı",
+      description: failed > 0 ? `${ok} başarılı, ${failed} başarısız` : `${ok} görsel optimize edildi`,
+    });
     setBulkOptimizing(false);
     setBulkProgress(null);
     load();

@@ -40,17 +40,31 @@ export const ALLERGEN_ICONS: Record<string, string> = {
   kükürt:          "🧪",
 };
 
+const ALIAS_MAP: Record<string, string> = {
+  yer_fıstığı:  "yer fıstığı",
+  molluscs:     "yumuşakça",
+  kükürt:       "sülfitler",
+  "süt ürünleri": "süt",
+};
+
+/**
+ * Map legacy / synonym allergen keys to the canonical chip key used in
+ * ALLERGEN_CHIPS, then lowercase+trim. This makes chip pre-selection and
+ * toggle logic work regardless of which variant is stored in the DB.
+ */
+export function normalizeAllergenKey(key: string): string {
+  const lower = key.trim().toLowerCase();
+  return ALIAS_MAP[lower] ?? lower;
+}
+
 export function getAllergenIcon(allergen: string): string {
-  const lower = allergen.trim().toLowerCase();
-  for (const [key, icon] of Object.entries(ALLERGEN_ICONS)) {
-    if (lower === key || lower.includes(key)) return icon;
-  }
-  return "⚠️";
+  const norm = normalizeAllergenKey(allergen);
+  return ALLERGEN_ICONS[norm] ?? "⚠️";
 }
 
 export function getAllergenLabel(key: string, lang: string): string {
-  const normalized = key.trim().toLowerCase();
-  const labels = ALLERGEN_LABELS[normalized];
+  const norm = normalizeAllergenKey(key);
+  const labels = ALLERGEN_LABELS[norm] ?? ALLERGEN_LABELS[key.trim().toLowerCase()];
   if (!labels) return key.charAt(0).toUpperCase() + key.slice(1);
   return labels[lang] ?? labels["tr"] ?? key;
 }
