@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
+import { getAllergenLabel } from "@/lib/allergens";
 import { ChevronDown, X, Info, Flame, Beef, Wheat, Droplet } from "lucide-react";
 
 interface NutritionFacts {
@@ -250,7 +251,7 @@ function ProductDetailModal({
                       borderColor: withOpacity(primaryColor, 0.3),
                     }}
                   >
-                    {a}
+                    {getAllergenLabel(a, lang)}
                   </span>
                 ))}
               </div>

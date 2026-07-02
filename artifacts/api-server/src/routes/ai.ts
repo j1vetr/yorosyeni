@@ -186,7 +186,7 @@ Respond ONLY with a valid JSON object matching this exact shape:
 }
 
 Rules:
-- allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam
+- allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam, lupin, yumuşakça, sülfitler
 - nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams (realistic for a restaurant portion)
 - calories: total kcal (same as nutritionFacts.energy)
 - translations[lang].name: dish name in that language, concise and appealing

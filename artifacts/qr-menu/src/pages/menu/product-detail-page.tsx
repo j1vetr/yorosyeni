@@ -9,31 +9,7 @@ import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-state
 import { apiFetch } from "@/lib/api";
 import { t } from "@/lib/i18n";
 
-const ALLERGEN_ICONS: Record<string, string> = {
-  gluten: "🌾",
-  süt: "🥛",
-  "süt ürünleri": "🥛",
-  yumurta: "🥚",
-  yer_fıstığı: "🥜",
-  fındık: "🌰",
-  balık: "🐟",
-  kabuklu: "🦐",
-  soya: "🫘",
-  kereviz: "🌿",
-  hardal: "🌻",
-  susam: "🫙",
-  kükürt: "⚗️",
-  lupin: "🌼",
-  molluscs: "🦪",
-};
-
-function getAllergenIcon(allergen: string): string {
-  const lower = allergen.toLowerCase();
-  for (const [key, icon] of Object.entries(ALLERGEN_ICONS)) {
-    if (lower.includes(key)) return icon;
-  }
-  return "⚠️";
-}
+import { getAllergenIcon, getAllergenLabel } from "@/lib/allergens";
 
 export default function ProductDetailPage() {
   const { menu, lang, accent, loading, error, reload } = useMenu();
@@ -148,7 +124,7 @@ export default function ProductDetailPage() {
                   >
                     {getAllergenIcon(a)}
                   </div>
-                  <span className="text-[10px] text-white/40 text-center leading-tight capitalize">{a.charAt(0).toUpperCase() + a.slice(1)}</span>
+                  <span className="text-[10px] text-white/40 text-center leading-tight">{getAllergenLabel(a, lang)}</span>
                 </div>
               ))}
             </div>

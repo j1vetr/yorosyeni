@@ -74,6 +74,9 @@ const ALLERGEN_CHIPS = [
   { key: "kereviz",      label: "Kereviz",      icon: "🌿" },
   { key: "hardal",       label: "Hardal",       icon: "🌻" },
   { key: "susam",        label: "Susam",        icon: "🫙" },
+  { key: "lupin",        label: "Lupin",        icon: "🌸" },
+  { key: "yumuşakça",    label: "Yumuşakça",    icon: "🦑" },
+  { key: "sülfitler",    label: "Sülfitler",    icon: "🧪" },
 ];
 
 /* ─── Image utilities ────────────────────────────────────────────── */
@@ -119,6 +122,21 @@ async function compressImage(
     const url = URL.createObjectURL(file);
     img.onload  = () => { URL.revokeObjectURL(url); compressToTarget(img, maxWidth, targetBytes).then(resolve).catch(reject); };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Görsel yüklenemedi")); };
+    img.src = url;
+  });
+}
+
+/** Compress an image from a URL through the same pipeline. */
+async function compressFromUrl(
+  url: string,
+  maxWidth = 1200,
+  targetBytes = 200 * 1024
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new globalThis.Image();
+    img.crossOrigin = "anonymous";
+    img.onload  = () => compressToTarget(img, maxWidth, targetBytes).then(resolve).catch(reject);
+    img.onerror = () => reject(new Error("Görsel URL'den yüklenemedi"));
     img.src = url;
   });
 }
@@ -323,7 +341,7 @@ function ProductModal({
 
   /* ── Details section ── */
   const [detailsOpen,  setDetailsOpen]  = useState(!!(product?.id)); // open when editing
-  const [allergens,    setAllergens]    = useState<string[]>(product?.allergens ?? []);
+  const [allergens,    setAllergens]    = useState<string[]>((product?.allergens ?? []).map((a) => a.trim().toLowerCase()));
   const [customAllergen, setCustomAllergen] = useState("");
   const [nutrition,    setNutrition]    = useState<NutritionFacts>(product?.nutritionFacts ?? {});
   const [translations, setTranslations] = useState<Translation[]>(
@@ -345,6 +363,7 @@ function ProductModal({
   const [saving,         setSaving]         = useState(false);
   const [aiLoading,      setAiLoading]      = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [optimizing,     setOptimizing]     = useState(false);
   const [aiFlash,        setAiFlash]        = useState(false);
   const [imgStyle,       setImgStyle]       = useState<"restaurant"|"professional"|"rustic"|"minimal"|"outdoor">("restaurant");
 
@@ -398,7 +417,7 @@ function ProductModal({
         body: JSON.stringify({ productName: trName, productId: product?.id, category: catName, languages: languages.map((l) => l.code) }),
       });
 
-      if (result.allergens?.length) setAllergens(result.allergens);
+      if (result.allergens?.length) setAllergens(result.allergens.map((a) => a.trim().toLowerCase()));
       if (result.calories)       setCalories(String(result.calories));
       if (result.nutritionFacts) setNutrition(result.nutritionFacts);
 
@@ -442,6 +461,22 @@ function ProductModal({
       toast({ title: "Görsel üretme hatası", description: String(err), variant: "destructive" });
     } finally {
       setAiImageLoading(false);
+    }
+  }
+
+  /* ── Optimize existing image ── */
+  async function handleOptimize() {
+    if (!imageUrl) return;
+    setOptimizing(true);
+    try {
+      const blob = await compressFromUrl(imageUrl);
+      const url  = await uploadBlob(blob, "optimized.jpg");
+      setImageUrl(url);
+      toast({ title: "Görsel optimize edildi ✓", description: formatBytes(blob.size) });
+    } catch (err) {
+      toast({ title: "Optimizasyon hatası", description: String(err), variant: "destructive" });
+    } finally {
+      setOptimizing(false);
     }
   }
 
@@ -619,6 +654,18 @@ function ProductModal({
                 ? <><span className="animate-spin text-xs">⟳</span> Görsel üretiliyor… (~20-30 sn)</>
                 : <><Sparkles className="w-4 h-4 text-amber-500" /> AI ile Görsel Üret</>}
             </button>
+
+            {imageUrl && (
+              <button
+                type="button" onClick={handleOptimize}
+                disabled={optimizing}
+                className="flex items-center gap-2 w-full justify-center px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-500 text-sm rounded-lg hover:text-neutral-300 hover:border-neutral-500 disabled:opacity-40 transition-colors"
+              >
+                {optimizing
+                  ? <><span className="animate-spin text-xs">⟳</span> Optimize ediliyor…</>
+                  : <><Image className="w-4 h-4" /> Görseli Optimize Et</>}
+              </button>
+            )}
           </div>
 
           {/* ────── AYRINTI BÖLÜMÜ (collapsible) ────── */}
@@ -799,6 +846,30 @@ export default function AdminProducts() {
   const [filterCat,  setFilterCat]  = useState<number | "all">("all");
 
   const sensors = useSensors(useSensor(PointerSensor));
+  const [bulkOptimizing, setBulkOptimizing] = useState(false);
+  const [bulkProgress,   setBulkProgress]   = useState<{ done: number; total: number } | null>(null);
+
+  async function handleBulkOptimize() {
+    const withImages = products.filter((p) => p.imageUrl);
+    if (!withImages.length) { toast({ title: "Optimize edilecek görsel yok" }); return; }
+    if (!confirm(`${withImages.length} ürünün görseli yeniden optimize edilecek. Devam edilsin mi?`)) return;
+    setBulkOptimizing(true);
+    setBulkProgress({ done: 0, total: withImages.length });
+    let done = 0;
+    for (const p of withImages) {
+      try {
+        const blob = await compressFromUrl(p.imageUrl!);
+        const url  = await uploadBlob(blob, "optimized.jpg");
+        await apiFetch(`/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ imageUrl: url }) });
+      } catch { /* skip failed items silently */ }
+      done++;
+      setBulkProgress({ done, total: withImages.length });
+    }
+    toast({ title: "Toplu optimizasyon tamamlandı", description: `${withImages.length} görsel işlendi` });
+    setBulkOptimizing(false);
+    setBulkProgress(null);
+    load();
+  }
 
   async function load() {
     const [prods, cats, langs] = await Promise.all([
@@ -848,12 +919,26 @@ export default function AdminProducts() {
           <h1 className="text-2xl font-bold text-white">Ürünler</h1>
           <p className="text-neutral-400 text-sm mt-1">Sürükleyerek sıralayabilirsiniz</p>
         </div>
-        <button
-          onClick={() => setEditing({})}
-          className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold rounded-full hover:bg-neutral-100 transition-colors"
-        >
-          <Plus className="w-4 h-4" />Yeni Ürün
-        </button>
+        <div className="flex items-center gap-2">
+          {bulkProgress && (
+            <span className="text-xs text-neutral-400">{bulkProgress.done} / {bulkProgress.total} işlendi</span>
+          )}
+          <button
+            onClick={handleBulkOptimize}
+            disabled={bulkOptimizing}
+            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 disabled:opacity-50 transition-colors"
+          >
+            {bulkOptimizing
+              ? <><span className="animate-spin text-xs">⟳</span> Optimize ediliyor…</>
+              : <><Image className="w-4 h-4" /> Tüm Görselleri Optimize Et</>}
+          </button>
+          <button
+            onClick={() => setEditing({})}
+            className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold rounded-full hover:bg-neutral-100 transition-colors"
+          >
+            <Plus className="w-4 h-4" />Yeni Ürün
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
