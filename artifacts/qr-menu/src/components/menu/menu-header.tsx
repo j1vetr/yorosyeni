@@ -43,8 +43,11 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
             <img
               src={menu.restaurant.logoUrl}
               alt={menu.restaurant.name}
-              className="h-8 object-contain"
-              style={menu.restaurant.logoWidth ? { maxWidth: `${menu.restaurant.logoWidth}px` } : undefined}
+              style={{
+                maxWidth: `${menu.restaurant.logoWidth ?? 120}px`,
+                maxHeight: "48px",
+                objectFit: "contain",
+              }}
             />
           ) : (
             <span className="font-bold text-white tracking-widest text-sm uppercase">
