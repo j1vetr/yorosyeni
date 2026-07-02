@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { ChevronDown } from "lucide-react";
 import { useMenu, formatPrice } from "@/contexts/menu-context";
 import MenuHeader from "@/components/menu/menu-header";
+import BottomNav from "@/components/menu/bottom-nav";
 import PageTransition from "@/components/menu/page-transition";
 import { MenuLoadingScreen, MenuErrorScreen } from "@/components/menu/menu-states";
 import { apiFetch } from "@/lib/api";
@@ -80,7 +81,7 @@ export default function ProductDetailPage() {
 
   return (
     <PageTransition>
-    <div className="luna-menu min-h-screen pb-8">
+    <div className="luna-menu min-h-screen pb-24">
       <MenuHeader showBack />
 
       {/* Hero Image */}
@@ -218,10 +219,8 @@ export default function ProductDetailPage() {
           {tr.backToMenu}
         </button>
 
-        <p className="text-center text-xs text-white/30 italic">
-          {tr.infoOnly}
-        </p>
       </div>
+      <BottomNav />
     </div>
     </PageTransition>
   );

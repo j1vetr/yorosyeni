@@ -159,13 +159,7 @@ export default function CategoryDetailPage() {
           })}
         </div>
       </div>
-
-      {/* Disclaimer bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A0A]/90 border-t border-white/5 pb-safe">
-        <p className="text-center text-xs text-white/30 italic px-4 py-2">
-          {tr.qrDisclaimer}
-        </p>
-      </div>
+      <BottomNav />
     </div>
     </PageTransition>
   );

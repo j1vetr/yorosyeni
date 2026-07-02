@@ -30,8 +30,11 @@ export interface Translations {
   chefsNote: string;
   ourTeam: string;
   backToMenu: string;
-  infoOnly: string;
   productNotFound: string;
+
+  navHome: string;
+  navCategories: string;
+  navLanguage: string;
 
   languageTitle: string;
   languageSub: string;
@@ -69,8 +72,11 @@ const tr: Translations = {
   chefsNote: "Şefin Notu",
   ourTeam: "Ekibimiz",
   backToMenu: "← MENÜYE DÖN",
-  infoOnly: "ⓘ Bilgi amaçlıdır. Sipariş oluşturulamaz.",
   productNotFound: "Ürün bulunamadı",
+
+  navHome: "Ana Sayfa",
+  navCategories: "Kategoriler",
+  navLanguage: "Dil",
 
   languageTitle: "Dil Seçimi",
   languageSub: "Lütfen menüyü görüntülemek istediğiniz dili seçin.",
@@ -108,8 +114,11 @@ const en: Translations = {
   chefsNote: "Chef's Note",
   ourTeam: "Our Team",
   backToMenu: "← BACK TO MENU",
-  infoOnly: "ⓘ For information only. Orders cannot be placed.",
   productNotFound: "Product not found",
+
+  navHome: "Home",
+  navCategories: "Categories",
+  navLanguage: "Language",
 
   languageTitle: "Language Selection",
   languageSub: "Please select the language you want to view the menu in.",
@@ -147,8 +156,11 @@ const ru: Translations = {
   chefsNote: "Записка шефа",
   ourTeam: "Наша команда",
   backToMenu: "← В МЕНЮ",
-  infoOnly: "ⓘ Только для ознакомления. Заказы не принимаются.",
   productNotFound: "Товар не найден",
+
+  navHome: "Главная",
+  navCategories: "Категории",
+  navLanguage: "Язык",
 
   languageTitle: "Выбор языка",
   languageSub: "Пожалуйста, выберите язык для просмотра меню.",
@@ -186,8 +198,11 @@ const ar: Translations = {
   chefsNote: "ملاحظة الشيف",
   ourTeam: "فريقنا",
   backToMenu: "→ العودة للقائمة",
-  infoOnly: "ⓘ للإطلاع فقط. لا يمكن تقديم الطلبات.",
   productNotFound: "المنتج غير موجود",
+
+  navHome: "الرئيسية",
+  navCategories: "الفئات",
+  navLanguage: "اللغة",
 
   languageTitle: "اختيار اللغة",
   languageSub: "الرجاء اختيار اللغة التي تريد عرض القائمة بها.",

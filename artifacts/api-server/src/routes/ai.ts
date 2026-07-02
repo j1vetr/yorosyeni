@@ -75,7 +75,8 @@ function buildImagePrompt(productName: string, style: ImageStyle, category?: str
     `Lighting: ${s.light}`,
     `Mood: ${s.mood}`,
     `Angle: ${s.angle}`,
-    "No text, no watermarks, no hands, food only",
+    "IMPORTANT: absolutely no text, no letters, no words, no labels, no numbers, no watermarks, no logos, no writing of any kind anywhere in the image",
+    "No hands, food only",
     "Realistic natural colors, appetizing presentation",
   ].join(". ");
 }

@@ -1,14 +1,18 @@
 import { useLocation, Link } from "wouter";
 import { Home, Grid2X2, Globe } from "lucide-react";
-
-const tabs = [
-  { href: "/", icon: Home, label: "Ana Sayfa" },
-  { href: "/categories", icon: Grid2X2, label: "Kategoriler" },
-  { href: "/language", icon: Globe, label: "Dil" },
-];
+import { useMenu } from "@/contexts/menu-context";
+import { t } from "@/lib/i18n";
 
 export default function BottomNav() {
   const [location] = useLocation();
+  const { lang } = useMenu();
+  const tr = t(lang);
+
+  const tabs = [
+    { href: "/",           icon: Home,     label: tr.navHome },
+    { href: "/categories", icon: Grid2X2,  label: tr.navCategories },
+    { href: "/language",   icon: Globe,    label: tr.navLanguage },
+  ];
 
   function isActive(href: string) {
     if (href === "/") return location === "/";
