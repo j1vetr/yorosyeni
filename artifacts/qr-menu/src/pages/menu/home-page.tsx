@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Search, ArrowRight, Info } from "lucide-react";
+import { Search, ArrowRight, Info } from "lucide-react"; // ArrowRight used in Featured section
 import { useMenu, formatPrice } from "@/contexts/menu-context";
 import MenuHeader from "@/components/menu/menu-header";
 import BottomNav from "@/components/menu/bottom-nav";
@@ -33,6 +33,49 @@ function getCategoryIcon(slug: string): string {
   return CATEGORY_ICONS.default;
 }
 
+/* ── Typing placeholder hook ───────────────────────────────────── */
+function useTypingPlaceholder(items: string[]): string {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    let idx = Math.floor(Math.random() * items.length);
+    let current = "";
+    let deleting = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    function tick() {
+      const target = items[idx];
+      if (!deleting) {
+        current = target.slice(0, current.length + 1);
+        setText(current);
+        if (current === target) {
+          deleting = true;
+          timer = setTimeout(tick, 1800);
+          return;
+        }
+        timer = setTimeout(tick, 75);
+      } else {
+        current = current.slice(0, -1);
+        setText(current);
+        if (current === "") {
+          deleting = false;
+          idx = (idx + 1 + Math.floor(Math.random() * (items.length - 1))) % items.length;
+          timer = setTimeout(tick, 500);
+          return;
+        }
+        timer = setTimeout(tick, 38);
+      }
+    }
+
+    timer = setTimeout(tick, 800);
+    return () => clearTimeout(timer);
+  }, [items.length]);       // eslint-disable-line react-hooks/exhaustive-deps
+
+  return text;
+}
+
 export default function HomePage() {
   const { menu, lang, accent, loading, error, reload } = useMenu();
   const [, navigate] = useLocation();
@@ -52,6 +95,11 @@ export default function HomePage() {
       apiFetch("/menu/view", { method: "POST", body: JSON.stringify({ lang }) }).catch(() => {});
     }
   }, [menu]);
+
+  /* Hook must be called before any early returns */
+  const typingPlaceholder = useTypingPlaceholder(
+    menu?.categories.flatMap((c) => c.products.map((p) => p.name)) ?? []
+  );
 
   if (loading) return <MenuLoadingScreen accent={accent} />;
   if (error) return <MenuErrorScreen error={error} reload={reload} accent={accent} />;
@@ -74,55 +122,15 @@ export default function HomePage() {
     <div className="luna-menu min-h-screen pb-24">
       <MenuHeader />
 
-      {/* Hero */}
-      <div className="relative px-4 pt-6 pb-4 max-w-xl mx-auto">
-        <div className="flex gap-4 items-start">
-          <div className="flex-1">
-            <p className="text-sm font-medium mb-2" style={{ color: accent }}>
-              {tr.welcome}
-            </p>
-            <h1 className="text-3xl font-bold text-white leading-tight tracking-tight mb-3">
-              {r.name ? tr.welcomeTagline(r.name) : tr.welcomeSub}
-            </h1>
-            {r.description && (
-              <p className="text-sm text-white/50 mb-4 leading-relaxed">{r.description}</p>
-            )}
-            {!r.description && (
-              <p className="text-sm text-white/50 mb-4">
-                {tr.welcomeSub}
-              </p>
-            )}
-            <button
-              onClick={() => navigate("/categories")}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full border text-sm font-semibold tracking-wide transition-colors hover:bg-white/5"
-              style={{ borderColor: accent, color: accent }}
-            >
-              {tr.exploreMenu} <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-          {r.heroImageUrl && (
-            <div className="w-36 h-36 flex-shrink-0 rounded-2xl overflow-hidden">
-              <img src={r.heroImageUrl} alt={r.name} className="w-full h-full object-cover" />
-            </div>
-          )}
-          {!r.heroImageUrl && (
-            <div
-              className="w-36 h-36 flex-shrink-0 rounded-2xl"
-              style={{ background: `linear-gradient(135deg, ${accent}22 0%, #1C1C1C 100%)` }}
-            />
-          )}
-        </div>
-      </div>
-
       {/* Search */}
-      <div className="px-4 mb-5 max-w-xl mx-auto">
+      <div className="px-4 pt-5 mb-5 max-w-xl mx-auto">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={tr.searchPlaceholder}
+            placeholder={search ? tr.searchPlaceholder : (typingPlaceholder || tr.searchPlaceholder)}
             className="w-full bg-white/5 border border-white/8 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/20 transition-colors"
           />
         </div>
