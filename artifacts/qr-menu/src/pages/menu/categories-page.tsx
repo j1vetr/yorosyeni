@@ -69,7 +69,7 @@ export default function CategoriesPage() {
                     color: accent,
                   }}
                 >
-                  {getCategoryIcon(cat.slug)}
+                  {cat.emoji || getCategoryIcon(cat.slug)}
                 </div>
 
                 <div className="flex-1 min-w-0">

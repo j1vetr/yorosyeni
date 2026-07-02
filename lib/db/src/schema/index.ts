@@ -41,6 +41,7 @@ export const settingsTable = pgTable("settings", {
   qualityNote: text("quality_note"),
   address: text("address"),
   description: text("description"),
+  logoWidth: integer("logo_width"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

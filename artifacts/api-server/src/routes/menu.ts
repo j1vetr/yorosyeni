@@ -120,6 +120,7 @@ async function buildMenuResponse(slug: string, lang: string) {
     restaurant: {
       name: settings.restaurantName,
       logoUrl: settings.logoUrl,
+      logoWidth: settings.logoWidth ?? null,
       primaryColor: settings.primaryColor,
       currency: settings.currency,
       heroImageUrl: settings.heroImageUrl ?? null,

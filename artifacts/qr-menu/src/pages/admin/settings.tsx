@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Copy, ExternalLink } from "lucide-react";
+import { Save, Copy, ExternalLink, Upload, ImageIcon, X } from "lucide-react";
 
 interface Settings {
   id?: number;
   slug: string;
   restaurantName: string;
   logoUrl?: string;
+  logoWidth?: number;
+  tagline?: string;
   primaryColor: string;
   currency: string;
   defaultLanguage: string;
@@ -44,6 +46,53 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+async function compressToTarget(img: HTMLImageElement, maxWidth: number, targetBytes: number): Promise<Blob> {
+  const scale = Math.min(1, maxWidth / img.width);
+  const canvas = document.createElement("canvas");
+  canvas.width  = Math.round(img.width  * scale);
+  canvas.height = Math.round(img.height * scale);
+  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blobAt = (q: number) =>
+    new Promise<Blob>((res, rej) =>
+      canvas.toBlob((b) => (b ? res(b) : rej(new Error("Canvas blob boş"))), "image/jpeg", q)
+    );
+  let quality = 0.85;
+  const MIN_QUALITY = 0.50;
+  const STEP = 0.10;
+  while (true) {
+    const blob = await blobAt(quality);
+    if (blob.size <= targetBytes || quality <= MIN_QUALITY) return blob;
+    quality = Math.max(MIN_QUALITY, quality - STEP);
+  }
+}
+
+async function compressImage(file: File, maxWidth = 1200, targetBytes = 200 * 1024): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new globalThis.Image();
+    const url = URL.createObjectURL(file);
+    img.onload  = () => { URL.revokeObjectURL(url); compressToTarget(img, maxWidth, targetBytes).then(resolve).catch(reject); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Görsel yüklenemedi")); };
+    img.src = url;
+  });
+}
+
+async function uploadBlob(blob: Blob, filename: string): Promise<string> {
+  const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    { method: "POST", body: JSON.stringify({ name: filename, size: blob.size, contentType: "image/jpeg" }) }
+  );
+  await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: blob });
+  const { servingUrl } = await apiFetch<{ servingUrl: string }>("/storage/uploads/confirm", {
+    method: "POST", body: JSON.stringify({ objectPath }),
+  });
+  return servingUrl;
+}
+
+async function uploadImage(file: File): Promise<string> {
+  const blob = await compressImage(file);
+  return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"));
+}
+
 export default function AdminSettings() {
   const { toast } = useToast();
   const [form, setForm] = useState<Settings>({
@@ -52,18 +101,21 @@ export default function AdminSettings() {
     primaryColor: "#C9A84C",
     currency: "TRY",
     defaultLanguage: "tr",
+    logoWidth: 120,
   });
   const [languages, setLanguages] = useState<Language[]>([]);
   const [newLang, setNewLang] = useState({ code: "", name: "" });
   const [saving, setSaving] = useState(false);
   const [qrUrl, setQrUrl] = useState("");
   const [qrImg, setQrImg] = useState("");
+  const [logoUploading, setLogoUploading] = useState(false);
   const qrRef = useRef<HTMLImageElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     apiFetch<Settings>("/settings")
       .then((s) => {
-        setForm(s);
+        setForm({ ...s, logoWidth: s.logoWidth ?? 120 });
         updateQr();
       })
       .catch(() => {});
@@ -81,7 +133,7 @@ export default function AdminSettings() {
     apiFetch<Language[]>("/languages").then(setLanguages);
   }
 
-  function set(field: keyof Settings, value: string) {
+  function set<K extends keyof Settings>(field: K, value: Settings[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
@@ -95,6 +147,22 @@ export default function AdminSettings() {
       toast({ title: "Hata", description: String(err), variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleLogoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    try {
+      const url = await uploadImage(file);
+      set("logoUrl", url);
+      toast({ title: "Logo yüklendi" });
+    } catch (err) {
+      toast({ title: "Logo yükleme hatası", description: String(err), variant: "destructive" });
+    } finally {
+      setLogoUploading(false);
+      if (logoFileRef.current) logoFileRef.current.value = "";
     }
   }
 
@@ -159,6 +227,15 @@ export default function AdminSettings() {
         <Field label="Slug (Sistem Tanımlayıcı)">
           <input value={form.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} placeholder="restoran-adi" />
         </Field>
+        <Field label="Alt Başlık (Tagline)">
+          <input
+            value={form.tagline ?? ""}
+            onChange={(e) => set("tagline", e.target.value)}
+            className={inputCls}
+            placeholder="Boş bırakılırsa gösterilmez"
+          />
+          <p className="mt-1 text-xs text-neutral-500">Header'da logo altında görünür. Örn: "Kitchen &amp; Bar"</p>
+        </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Para Birimi">
             <select value={form.currency} onChange={(e) => set("currency", e.target.value)} className={inputCls}>
@@ -176,8 +253,89 @@ export default function AdminSettings() {
             </select>
           </Field>
         </div>
-        <Field label="Logo URL">
-          <input value={form.logoUrl ?? ""} onChange={(e) => set("logoUrl", e.target.value)} className={inputCls} placeholder="https://..." />
+      </div>
+
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
+        <h2 className="text-sm font-medium text-white uppercase tracking-widest">Logo</h2>
+
+        <Field label="Logo Görseli">
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                value={form.logoUrl ?? ""}
+                onChange={(e) => set("logoUrl", e.target.value)}
+                className={inputCls}
+                placeholder="https://... veya dosya yükleyin"
+              />
+              <button
+                type="button"
+                onClick={() => logoFileRef.current?.click()}
+                disabled={logoUploading}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-neutral-800 border border-neutral-700 text-white text-sm rounded-lg hover:border-neutral-500 disabled:opacity-50 transition-colors"
+              >
+                {logoUploading ? (
+                  <span className="text-xs">Yükleniyor…</span>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    <span className="text-xs">Yükle</span>
+                  </>
+                )}
+              </button>
+              <input
+                ref={logoFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoFileChange}
+              />
+            </div>
+
+            {form.logoUrl ? (
+              <div className="flex items-center gap-3 p-3 bg-neutral-800 rounded-lg border border-neutral-700">
+                <img
+                  src={form.logoUrl}
+                  alt="Logo önizleme"
+                  className="h-10 object-contain rounded"
+                  style={{ maxWidth: `${form.logoWidth ?? 120}px` }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-neutral-400 truncate">{form.logoUrl}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => set("logoUrl", "")}
+                  className="text-neutral-500 hover:text-red-400 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-16 bg-neutral-800 rounded-lg border border-dashed border-neutral-700">
+                <div className="flex items-center gap-2 text-neutral-500 text-xs">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Henüz logo yüklenmedi</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </Field>
+
+        <Field label={`Logo Genişliği — ${form.logoWidth ?? 120}px`}>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-neutral-500 w-8">60</span>
+            <input
+              type="range"
+              min={60}
+              max={300}
+              step={10}
+              value={form.logoWidth ?? 120}
+              onChange={(e) => set("logoWidth", Number(e.target.value))}
+              className="flex-1 accent-[#C9A84C]"
+            />
+            <span className="text-xs text-neutral-500 w-10 text-right">300</span>
+          </div>
+          <p className="mt-1 text-xs text-neutral-500">Header'daki logo görseli maksimum genişliğini ayarlar</p>
         </Field>
       </div>
 

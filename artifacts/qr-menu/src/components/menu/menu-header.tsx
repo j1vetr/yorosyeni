@@ -44,15 +44,18 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
               src={menu.restaurant.logoUrl}
               alt={menu.restaurant.name}
               className="h-8 object-contain"
+              style={menu.restaurant.logoWidth ? { maxWidth: `${menu.restaurant.logoWidth}px` } : undefined}
             />
           ) : (
             <span className="font-bold text-white tracking-widest text-sm uppercase">
               {menu?.restaurant.name ?? "LUNA"}
             </span>
           )}
-          <span className="text-[9px] tracking-[0.2em] text-white/30 uppercase">
-            Kitchen &amp; Bar
-          </span>
+          {menu?.restaurant.tagline && (
+            <span className="text-[9px] tracking-[0.2em] text-white/30 uppercase">
+              {menu.restaurant.tagline}
+            </span>
+          )}
         </div>
 
         <div ref={dropRef} className="w-auto flex-shrink-0 relative">

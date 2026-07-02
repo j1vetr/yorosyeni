@@ -30,12 +30,14 @@ export interface CategoryData {
   name: string;
   description?: string;
   imageUrl?: string;
+  emoji?: string;
   products: ProductData[];
 }
 
 export interface RestaurantInfo {
   name: string;
   logoUrl?: string;
+  logoWidth?: number;
   primaryColor?: string;
   currency?: string;
   heroImageUrl?: string;
