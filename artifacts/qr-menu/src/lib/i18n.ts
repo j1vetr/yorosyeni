@@ -19,6 +19,7 @@ export interface Translations {
   qrDisclaimer: string;
   categoryNotFound: string;
 
+  portion: string;
   calories: string;
   energy: string;
   allergens: string;
@@ -61,6 +62,7 @@ const tr: Translations = {
   qrDisclaimer: "ⓘ Bu menü QR ile görüntülenmektedir. Sipariş verilemez.",
   categoryNotFound: "Kategori bulunamadı",
 
+  portion: "Gramaj",
   calories: "Kalori",
   energy: "Enerji",
   allergens: "Alerjenler",
@@ -103,6 +105,7 @@ const en: Translations = {
   qrDisclaimer: "ⓘ This menu is viewed via QR. Orders cannot be placed.",
   categoryNotFound: "Category not found",
 
+  portion: "Portion",
   calories: "Calories",
   energy: "Energy",
   allergens: "Allergens",
@@ -145,6 +148,7 @@ const ru: Translations = {
   qrDisclaimer: "ⓘ Меню доступно по QR-коду. Заказы не принимаются.",
   categoryNotFound: "Категория не найдена",
 
+  portion: "Порция",
   calories: "Калории",
   energy: "Энергия",
   allergens: "Аллергены",
@@ -187,6 +191,7 @@ const ar: Translations = {
   qrDisclaimer: "ⓘ هذه القائمة تُعرض عبر رمز QR. لا يمكن تقديم الطلبات.",
   categoryNotFound: "الفئة غير موجودة",
 
+  portion: "الحجم",
   calories: "السعرات",
   energy: "الطاقة",
   allergens: "مسببات الحساسية",
