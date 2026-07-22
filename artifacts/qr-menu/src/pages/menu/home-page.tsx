@@ -164,7 +164,7 @@ export default function HomePage() {
       {/* Fiyat Güncelleme Tarihi */}
       {r.priceUpdatedAt && (
         <div className="max-w-xl mx-auto px-4 mb-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
             <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
               {{
                 tr: "Fiyat Güncelleme Tarihi",
