@@ -114,19 +114,39 @@ function parseCategories(html: string): RawCategory[] {
 }
 
 function parseProducts(html: string): RawProduct[] {
-  const re = /openProductModal\((\{[^)]+\})\)/g;
   const results: RawProduct[] = [];
   const seen = new Set<number>();
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
+  const marker = "openProductModal(";
+  let pos = 0;
+
+  while (true) {
+    const start = html.indexOf(marker, pos);
+    if (start === -1) break;
+
+    const jsonStart = start + marker.length;
+    // Find matching closing brace by counting nesting — handles ")" inside JSON values
+    let depth = 0;
+    let jsonEnd = -1;
+    for (let i = jsonStart; i < html.length; i++) {
+      if (html[i] === "{") depth++;
+      else if (html[i] === "}") {
+        depth--;
+        if (depth === 0) { jsonEnd = i + 1; break; }
+      }
+    }
+
+    if (jsonEnd === -1) { pos = jsonStart; continue; }
+
     try {
-      const raw = m[1]
-        .replace(/&quot;/g, '"').replace(/&#039;/g, "'")
-        .replace(/&amp;/g, "&");
+      const raw = html.slice(jsonStart, jsonEnd)
+        .replace(/&quot;/g, '"').replace(/&#039;/g, "'").replace(/&amp;/g, "&");
       const p = JSON.parse(raw) as RawProduct;
       if (!seen.has(p.id)) { seen.add(p.id); results.push(p); }
     } catch { /* malformed — skip */ }
+
+    pos = jsonEnd;
   }
+
   return results;
 }
 
@@ -293,6 +313,53 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
         errors.push(`Ürün eklenemedi (${p.menu_name}): ${String(e)}`);
         send({ type: "log", msg: `  ❌ ${p.menu_name}: ${String(e)}` });
       }
+    }
+
+    /* 7. İkinci geçiş — eksik ürünleri kontrol et */
+    send({ type: "log", msg: "\n🔍 İkinci geçiş: eksik ürünler kontrol ediliyor…" });
+    let retryCount = 0;
+
+    for (const cat of rawCats) {
+      const newCatId = catIdMap.get(cat.id);
+      if (!newCatId) continue;
+
+      try {
+        const html = await fetchHtml(`${SOURCE}/categories?category=${cat.id}`);
+        const prods = parseProducts(html);
+
+        for (const p of prods) {
+          const baseSlug = slugify(p.menu_name) || `urun-${p.id}`;
+          const existing = await db.select({ id: productsTable.id })
+            .from(productsTable).where(eq(productsTable.slug, baseSlug)).limit(1);
+          if (existing.length) continue; // already inserted
+
+          // Bu ürün ilk geçişte atlanmış — şimdi ekle
+          const price = parseFloat(p.menu_price) || 0;
+          try {
+            const slug = await uniqueSlug(baseSlug, "product");
+            const imageUrl = p.menu_images ? await downloadAndStore(p.menu_images, SOURCE) : null;
+            const [created] = await db.insert(productsTable)
+              .values({ categoryId: newCatId, slug, price, currency: "TRY", isActive: true, sortOrder: 999, imageUrl })
+              .returning();
+            await db.insert(productTranslationsTable).values({
+              productId: created.id, languageCode: "tr",
+              name: decodeEntities(p.menu_name),
+              description: decodeEntities(p.menu_desc || "") || null,
+            });
+            retryCount++;
+            prodCount++;
+            send({ type: "log", msg: `  ✓ (eksikti) ${cat.name} → ${p.menu_name}` });
+          } catch (e) {
+            errors.push(`İkinci geçiş eklenemedi (${p.menu_name}): ${String(e)}`);
+          }
+        }
+      } catch { /* category page unreachable — skip */ }
+    }
+
+    if (retryCount > 0) {
+      send({ type: "log", msg: `  +${retryCount} eksik ürün ikinci geçişte eklendi.` });
+    } else {
+      send({ type: "log", msg: "  Eksik ürün yok, her şey tamam." });
     }
 
     send({ type: "log", msg: `\n✅ Tamamlandı: ${catCount} kategori, ${prodCount} ürün eklendi.` });

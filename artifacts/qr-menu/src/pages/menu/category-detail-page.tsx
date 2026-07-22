@@ -48,9 +48,8 @@ export default function CategoryDetailPage() {
 
         {/* Category note / warning */}
         {category.note && (
-          <div className="flex gap-3 bg-amber-950/40 border border-amber-500/30 rounded-2xl px-4 py-3.5 mb-5">
-            <span className="text-amber-400 text-lg leading-none mt-0.5">⚠</span>
-            <p className="text-amber-200/90 text-sm leading-relaxed">{category.note}</p>
+          <div className="bg-white/8 border border-white/12 rounded-2xl px-5 py-4 mb-5 text-center">
+            <p className="text-white/80 text-sm leading-relaxed">{category.note}</p>
           </div>
         )}
 
