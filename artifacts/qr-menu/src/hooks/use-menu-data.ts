@@ -19,6 +19,7 @@ export interface ProductData {
   price: number;
   currency: string;
   imageUrl?: string;
+  isPopular?: boolean;
   calories?: number;
   allergens?: string[];
   nutritionFacts?: NutritionFacts;

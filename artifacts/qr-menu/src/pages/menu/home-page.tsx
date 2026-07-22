@@ -108,7 +108,8 @@ export default function HomePage() {
   const r = menu.restaurant;
 
   const allProducts = menu.categories.flatMap((c) => c.products.map((p) => ({ ...p, categorySlug: c.slug })));
-  const featuredProducts = allProducts.filter((p) => p.imageUrl).slice(0, 6);
+  const popularProducts = allProducts.filter((p) => p.isPopular);
+  const featuredProducts = allProducts.filter((p) => p.imageUrl && !p.isPopular).slice(0, 6);
 
   const searchResults = search.trim()
     ? allProducts.filter((p) =>
@@ -182,28 +183,6 @@ export default function HomePage() {
       {/* Category Icon Bar */}
       <div className="mb-6 max-w-xl mx-auto">
         <div className="flex gap-3 overflow-x-auto px-4 scrollbar-hide pb-1">
-          {/* Tümü */}
-          <button
-            onClick={() => setActiveSlug("all")}
-            className="flex flex-col items-center gap-2 flex-shrink-0 w-20"
-          >
-            <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl transition-all"
-              style={{
-                background: activeSlug === "all" ? `${accent}20` : "rgba(255,255,255,0.07)",
-                border: activeSlug === "all" ? `2px solid ${accent}` : "2px solid transparent",
-              }}
-            >
-              🍽️
-            </div>
-            <span
-              className="text-[11px] font-medium leading-tight text-center w-full line-clamp-2"
-              style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.5)" }}
-            >
-              {tr.all}
-            </span>
-          </button>
-
           {menu.categories.map((cat) => {
             const thumb = cat.imageUrl ?? cat.products.find((p: { imageUrl?: string }) => p.imageUrl)?.imageUrl;
             const isActive = activeSlug === cat.slug;
@@ -248,34 +227,62 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Featured */}
-      <div className="px-4 max-w-xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">{tr.featured}</h2>
-          <button
-            onClick={() => navigate("/categories")}
-            className="flex items-center gap-1 text-sm font-medium"
-            style={{ color: accent }}
-          >
-            {tr.seeAll} <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {featuredProducts.length === 0 && allProducts.length > 0 && (
+      {/* Popüler Ürünler */}
+      {popularProducts.length > 0 && (
+        <div className="px-4 max-w-xl mx-auto mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">
+              {{
+                tr: "Popüler Ürünler", en: "Popular Items",
+                ru: "Популярные блюда", ar: "الأطباق الشائعة",
+              }[lang] ?? "Popüler Ürünler"}
+            </h2>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            {allProducts.slice(0, 6).map((p, i) => (
-              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
+            {popularProducts.map((p, i) => (
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} popular />
             ))}
           </div>
-        )}
-        {featuredProducts.length > 0 && (
+        </div>
+      )}
+
+      {/* Öne Çıkanlar */}
+      {featuredProducts.length > 0 && (
+        <div className="px-4 max-w-xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">{tr.featured}</h2>
+            <button
+              onClick={() => navigate("/categories")}
+              className="flex items-center gap-1 text-sm font-medium"
+              style={{ color: accent }}
+            >
+              {tr.seeAll} <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {featuredProducts.map((p, i) => (
               <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Hiç ürün yoksa tüm ürünleri göster */}
+      {featuredProducts.length === 0 && popularProducts.length === 0 && allProducts.length > 0 && (
+        <div className="px-4 max-w-xl mx-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">{tr.featured}</h2>
+            <button onClick={() => navigate("/categories")} className="flex items-center gap-1 text-sm font-medium" style={{ color: accent }}>
+              {tr.seeAll} <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {allProducts.slice(0, 6).map((p, i) => (
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <BottomNav />
     </div>
@@ -288,19 +295,21 @@ function ProductCard({
   accent,
   isFirst,
   navigate,
+  popular,
 }: {
   product: { id: number; slug: string; name: string; description?: string; price: number; currency: string; imageUrl?: string; categorySlug: string };
   accent: string;
   isFirst: boolean;
   navigate: (to: string) => void;
   viewCount?: number;
+  popular?: boolean;
 }) {
   return (
     <button
       onClick={() => navigate(`/categories/${product.categorySlug}/${product.slug}`)}
       className="bg-[#141414] rounded-2xl overflow-hidden text-left relative hover:bg-[#1a1a1a] transition-colors"
     >
-      <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden flex items-center justify-center">
+      <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden flex items-center justify-center relative">
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />
         ) : (
@@ -310,6 +319,14 @@ function ProductCard({
           >
             🍽️
           </div>
+        )}
+        {popular && (
+          <span
+            className="absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: accent, color: "#000" }}
+          >
+            ★ Popüler
+          </span>
         )}
       </div>
       <div className="p-3">

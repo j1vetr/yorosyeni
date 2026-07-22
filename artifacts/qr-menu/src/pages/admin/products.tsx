@@ -42,6 +42,7 @@ interface Product {
   currency?: string;
   imageUrl?: string;
   isActive: boolean;
+  isPopular: boolean;
   sortOrder: number;
   calories?: number;
   allergens?: string[];
@@ -1129,6 +1130,7 @@ function ProductModal({
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? categories[0]?.id ?? 0);
   const [price,      setPrice]      = useState(String(product?.price ?? ""));
   const [isActive,   setIsActive]   = useState(product?.isActive ?? true);
+  const [isPopular,  setIsPopular]  = useState(product?.isPopular ?? false);
   const [imageUrl,   setImageUrl]   = useState(product?.imageUrl ?? "");
   const [calories,   setCalories]   = useState(String(product?.calories ?? ""));
 
@@ -1284,6 +1286,7 @@ function ProductModal({
         categoryId:   Number(categoryId),
         price:        parseFloat(price) || 0,
         isActive,
+        isPopular,
         imageUrl:     imageUrl || undefined,
         calories:     calories ? parseInt(calories) : undefined,
         allergens,
@@ -1402,6 +1405,18 @@ function ProductModal({
                 <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
               </button>
               <span className="text-xs text-neutral-500">{isActive ? "Menüde görünür" : "Gizli"}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-neutral-300">Popüler Ürün</span>
+              <button
+                type="button" onClick={() => setIsPopular(!isPopular)}
+                className={`w-10 h-5 rounded-full transition-colors relative ${isPopular ? "" : "bg-neutral-700"}`}
+                style={isPopular ? { background: "#C9A84C" } : {}}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isPopular ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
+              <span className="text-xs text-neutral-500">{isPopular ? "Ana sayfada gösterilir" : "Normal ürün"}</span>
             </div>
           </div>
 

@@ -100,6 +100,7 @@ async function buildMenuResponse(slug: string, lang: string) {
             calories: p.calories,
             allergens: p.allergens,
             nutritionFacts: p.nutritionFacts,
+            isPopular: p.isPopular,
           };
         })
       );

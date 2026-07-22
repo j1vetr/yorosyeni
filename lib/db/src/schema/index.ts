@@ -112,6 +112,7 @@ export const productsTable = pgTable(
     currency: varchar("currency", { length: 8 }).default("TRY"),
     isActive: boolean("is_active").default(true).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
+    isPopular: boolean("is_popular").default(false).notNull(),
     calories: integer("calories"),
     allergens: jsonb("allergens").$type<string[]>().default([]),
     nutritionFacts: jsonb("nutrition_facts")
