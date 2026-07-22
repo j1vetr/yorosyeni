@@ -111,6 +111,7 @@ async function buildMenuResponse(slug: string, lang: string) {
         description: catDesc,
         imageUrl: cat.imageUrl,
         emoji: cat.emoji ?? null,
+        note: cat.note ?? null,
         products: productsWithTr,
       };
     })

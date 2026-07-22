@@ -46,6 +46,14 @@ export default function CategoryDetailPage() {
 
         <h1 className="text-3xl font-bold text-white tracking-tight mb-4">{category.name}</h1>
 
+        {/* Category note / warning */}
+        {category.note && (
+          <div className="flex gap-3 bg-amber-950/40 border border-amber-500/30 rounded-2xl px-4 py-3.5 mb-5">
+            <span className="text-amber-400 text-lg leading-none mt-0.5">⚠</span>
+            <p className="text-amber-200/90 text-sm leading-relaxed">{category.note}</p>
+          </div>
+        )}
+
         {/* Product list */}
         {category.products.length === 0 && (
           <p className="mt-6 text-center text-sm text-white/40">{tr.noResults}</p>

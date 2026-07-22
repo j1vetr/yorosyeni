@@ -211,6 +211,7 @@ function CategoryModal({
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
   const [emoji, setEmoji] = useState(category?.emoji ?? "");
+  const [note, setNote] = useState(category?.note ?? "");
   const [translations, setTranslations] = useState<Translation[]>(
     languages.map((l) => ({
       languageCode: l.code,
@@ -270,6 +271,7 @@ function CategoryModal({
         slug,
         isActive,
         emoji: emoji || null,
+        note: note.trim() || null,
         translations: translations.filter((t) => t.name),
       };
       if (category?.id) {
@@ -307,6 +309,17 @@ function CategoryModal({
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Emoji</label>
             <EmojiPicker value={emoji} onChange={setEmoji} />
+          </div>
+
+          <div>
+            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Uyarı Notu</label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Örn: Bu kategorideki ürünler gluten içerir. (boş bırakılırsa gösterilmez)"
+              rows={3}
+              className="w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white resize-none placeholder:text-neutral-600"
+            />
           </div>
 
           <div className="flex items-center gap-3">
