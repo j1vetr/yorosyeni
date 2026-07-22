@@ -54,24 +54,21 @@ export default function CategoriesPage() {
                   {/* Thumbnail / colour block */}
                   <div className="w-full aspect-[4/3] relative overflow-hidden">
                     {thumb ? (
+                      /* Fotoğraf varsa: sadece fotoğraf, ikon yok */
                       <img
                         src={thumb}
                         alt={cat.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
+                      /* Fotoğraf yoksa: renkli arka plan + büyük emoji ortada */
                       <div
-                        className="w-full h-full flex items-center justify-center"
+                        className="w-full h-full flex items-center justify-center text-5xl"
                         style={{ background: `${accent}18` }}
-                      />
+                      >
+                        {icon}
+                      </div>
                     )}
-                    {/* Emoji badge */}
-                    <div
-                      className="absolute bottom-2 left-2 w-11 h-11 rounded-full flex items-center justify-center text-2xl shadow-lg"
-                      style={{ background: "rgba(0,0,0,0.55)", border: `1.5px solid ${accent}55` }}
-                    >
-                      {icon}
-                    </div>
                   </div>
 
                   {/* Info */}

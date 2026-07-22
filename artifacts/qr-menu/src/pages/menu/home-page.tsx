@@ -204,26 +204,25 @@ export default function HomePage() {
                     border: isActive ? `2px solid ${accent}` : "2px solid transparent",
                   }}
                 >
-                  {/* Thumbnail arka plan */}
-                  {thumb && (
+                  {thumb ? (
+                    /* Fotoğraf varsa: sadece fotoğraf */
                     <img
                       src={thumb}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover scale-110"
-                      style={{ filter: "brightness(0.45) blur(1px)" }}
+                      alt={cat.name}
+                      className="w-full h-full object-cover"
                     />
+                  ) : (
+                    /* Fotoğraf yoksa: renkli arka plan + emoji */
+                    <>
+                      <div
+                        className="absolute inset-0"
+                        style={{ background: isActive ? `${accent}20` : "rgba(255,255,255,0.05)" }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                        {cat.emoji || getCategoryIcon(cat.slug)}
+                      </div>
+                    </>
                   )}
-                  {/* Renk bloğu (resim yoksa) */}
-                  {!thumb && (
-                    <div
-                      className="absolute inset-0"
-                      style={{ background: isActive ? `${accent}20` : "rgba(255,255,255,0.05)" }}
-                    />
-                  )}
-                  {/* Emoji */}
-                  <div className="absolute inset-0 flex items-center justify-center text-3xl">
-                    {cat.emoji || getCategoryIcon(cat.slug)}
-                  </div>
                 </div>
                 <span
                   className="text-[10px] font-medium leading-tight text-center w-full line-clamp-2"
