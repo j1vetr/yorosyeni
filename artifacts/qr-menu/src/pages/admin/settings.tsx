@@ -81,12 +81,12 @@ async function compressImage(file: File, maxWidth = 1200, targetBytes = 200 * 10
   });
 }
 
-async function uploadBlob(blob: Blob, filename: string): Promise<string> {
+async function uploadBlob(blob: Blob, filename: string, contentType = "image/jpeg"): Promise<string> {
   const { uploadURL, objectPath } = await apiFetch<{ uploadURL: string; objectPath: string }>(
     "/storage/uploads/request-url",
-    { method: "POST", body: JSON.stringify({ name: filename, size: blob.size, contentType: "image/jpeg" }) }
+    { method: "POST", body: JSON.stringify({ name: filename, size: blob.size, contentType }) }
   );
-  await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": "image/jpeg" }, body: blob });
+  await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": contentType }, body: blob });
   const { servingUrl } = await apiFetch<{ servingUrl: string }>("/storage/uploads/confirm", {
     method: "POST", body: JSON.stringify({ objectPath }),
   });
@@ -95,7 +95,21 @@ async function uploadBlob(blob: Blob, filename: string): Promise<string> {
 
 async function uploadImage(file: File): Promise<string> {
   const blob = await compressImage(file);
-  return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"));
+  return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"), "image/jpeg");
+}
+
+/** Logo yükleme: PNG ise şeffaflık korunur (JPEG dönüşümü yok). */
+async function uploadLogo(file: File): Promise<string> {
+  if (file.type === "image/png") {
+    // PNG → doğrudan yükle, şeffaflık bozulmaz
+    return uploadBlob(file, file.name, "image/png");
+  }
+  if (file.type === "image/svg+xml") {
+    return uploadBlob(file, file.name, "image/svg+xml");
+  }
+  // Diğer formatlar → JPEG sıkıştır
+  const blob = await compressImage(file);
+  return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"), "image/jpeg");
 }
 
 export default function AdminSettings() {
@@ -160,7 +174,7 @@ export default function AdminSettings() {
     if (!file) return;
     setLogoUploading(true);
     try {
-      const url = await uploadImage(file);
+      const url = await uploadLogo(file);
       set("logoUrl", url);
       toast({ title: "Logo yüklendi" });
     } catch (err) {

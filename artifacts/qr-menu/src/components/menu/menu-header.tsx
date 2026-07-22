@@ -103,8 +103,11 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
                 alt={r.name}
                 style={{
                   maxWidth: `${r.logoWidth ?? 120}px`,
-                  maxHeight: "48px",
+                  maxHeight: "80px",
+                  width: "100%",
                   objectFit: "contain",
+                  display: "block",
+                  background: "transparent",
                 }}
               />
             ) : (
