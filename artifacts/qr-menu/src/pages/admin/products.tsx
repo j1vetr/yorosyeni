@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
   ImageIcon, Eye, Image, ChevronDown, ChevronUp,
-  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle,
+  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle, Search,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor,
@@ -1393,6 +1393,7 @@ export default function AdminProducts() {
   const [viewCounts, setViewCounts] = useState<Record<number, number>>({});
   const [editing,    setEditing]    = useState<Partial<Product> | null | false>(false);
   const [filterCat,  setFilterCat]  = useState<number | "all">("all");
+  const [search,     setSearch]     = useState("");
 
   const sensors = useSensors(useSensor(PointerSensor));
   const [bulkOptimizing, setBulkOptimizing] = useState(false);
@@ -1465,14 +1466,28 @@ export default function AdminProducts() {
     await apiFetch("/products/reorder", { method: "POST", body: JSON.stringify({ ids: reordered.map((p) => p.id) }) });
   }
 
-  const filteredProducts = filterCat === "all" ? products : products.filter((p) => p.categoryId === filterCat);
+  const filteredProducts = products
+    .filter((p) => filterCat === "all" || p.categoryId === filterCat)
+    .filter((p) => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return (
+        p.translations.some((t) => t.name.toLowerCase().includes(q)) ||
+        p.slug.toLowerCase().includes(q)
+      );
+    });
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-5 max-w-3xl">
+      {/* ── Başlık + butonlar ── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Ürünler</h1>
-          <p className="text-neutral-400 text-sm mt-1">Sürükleyerek sıralayabilirsiniz</p>
+          <p className="text-neutral-500 text-sm mt-0.5">
+            {filteredProducts.length !== products.length
+              ? `${filteredProducts.length} / ${products.length} ürün`
+              : `${products.length} ürün · sürükleyerek sıralayın`}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {bulkProgress && (
@@ -1487,39 +1502,50 @@ export default function AdminProducts() {
               ? <><span className="animate-spin text-xs">⟳</span> Optimize ediliyor…</>
               : <><Image className="w-4 h-4" /> Görselleri Optimize Et</>}
           </button>
-          <button
-            onClick={() => setShowBulkImage(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors"
-          >
+          <button onClick={() => setShowBulkImage(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <Images className="w-4 h-4" /> Toplu Görsel Üret
           </button>
-          <button
-            onClick={() => setShowBulkAdd(true)}
-            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors"
-          >
+          <button onClick={() => setShowBulkAdd(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <ListPlus className="w-4 h-4" /> Toplu Ekle
           </button>
-          <button
-            onClick={() => setEditing({})}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold rounded-full hover:bg-neutral-100 transition-colors"
-          >
-            <Plus className="w-4 h-4" />Yeni Ürün
+          <button onClick={() => setEditing({})} className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-semibold rounded-full hover:bg-neutral-100 transition-colors">
+            <Plus className="w-4 h-4" /> Yeni Ürün
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={() => setFilterCat("all")} className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === "all" ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}>
-          Tümü ({products.length})
-        </button>
-        {categories.map((c) => {
-          const cnt = products.filter((p) => p.categoryId === c.id).length;
-          return (
-            <button key={c.id} onClick={() => setFilterCat(c.id)} className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === c.id ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}>
-              {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug} ({cnt})
+      {/* ── Arama + kategori filtresi ── */}
+      <div className="space-y-3">
+        {/* Arama */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500 pointer-events-none" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Ürün ara…"
+            className="w-full bg-neutral-900 border border-neutral-700 text-white rounded-xl pl-9 pr-9 py-2.5 text-sm focus:outline-none focus:border-neutral-500 placeholder:text-neutral-600"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors">
+              <X className="w-4 h-4" />
             </button>
-          );
-        })}
+          )}
+        </div>
+
+        {/* Kategori filtreleri */}
+        <div className="flex gap-2 flex-wrap">
+          <button onClick={() => setFilterCat("all")} className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === "all" ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}>
+            Tümü ({products.length})
+          </button>
+          {categories.map((c) => {
+            const cnt = products.filter((p) => p.categoryId === c.id).length;
+            return (
+              <button key={c.id} onClick={() => setFilterCat(c.id)} className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === c.id ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}>
+                {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug} ({cnt})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {filteredProducts.length === 0 ? (
