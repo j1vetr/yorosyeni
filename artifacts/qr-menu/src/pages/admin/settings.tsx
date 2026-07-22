@@ -242,6 +242,7 @@ export default function AdminSettings() {
         <h2 className="text-sm font-medium text-white uppercase tracking-widest">Restoran Bilgileri</h2>
         <Field label="Restoran Adı">
           <input value={form.restaurantName} onChange={(e) => set("restaurantName", e.target.value)} className={inputCls} placeholder="Restoran Adı" />
+          <p className="mt-1 text-xs text-neutral-500">📱 WhatsApp, Instagram ve arama motorlarında bu isim görünür. Kaydet'e bastıktan sonra ~5 dakika içinde güncellenir.</p>
         </Field>
         <Field label="Slug (Sistem Tanımlayıcı)">
           <input value={form.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} placeholder="restoran-adi" />
