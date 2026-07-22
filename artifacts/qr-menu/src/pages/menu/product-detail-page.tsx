@@ -62,8 +62,8 @@ export default function ProductDetailPage() {
 
       {/* Hero Image */}
       {product.imageUrl ? (
-        <div className="w-full bg-[#0A0A0A]">
-          <img src={product.imageUrl} alt={product.name} className="w-full h-auto block" />
+        <div className="w-full bg-[#0A0A0A] flex items-center justify-center" style={{ maxHeight: "280px", overflow: "hidden" }}>
+          <img src={product.imageUrl} alt={product.name} className="w-full object-contain block" style={{ maxHeight: "280px" }} />
         </div>
       ) : (
         <div
