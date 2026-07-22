@@ -163,59 +163,77 @@ export default function HomePage() {
 
       {/* Category Icon Bar */}
       <div className="mb-6 max-w-xl mx-auto">
-        <div className="flex gap-3 overflow-x-auto px-4 scrollbar-hide pb-1">
+        <div className="flex gap-2.5 overflow-x-auto px-4 scrollbar-hide pb-1">
+          {/* Tümü */}
           <button
             onClick={() => setActiveSlug("all")}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0"
+            className="flex flex-col items-center gap-2 flex-shrink-0 w-[68px]"
           >
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all"
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all"
               style={{
-                background: activeSlug === "all" ? `${accent}22` : "rgba(255,255,255,0.05)",
+                background: activeSlug === "all" ? `${accent}20` : "rgba(255,255,255,0.05)",
                 border: activeSlug === "all" ? `2px solid ${accent}` : "2px solid transparent",
               }}
             >
               🍽️
             </div>
             <span
-              className="text-[10px] font-medium"
-              style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.5)" }}
+              className="text-[10px] font-medium leading-tight text-center w-full line-clamp-2"
+              style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.45)" }}
             >
               {tr.all}
             </span>
-            {activeSlug === "all" && (
-              <div className="w-4 h-0.5 rounded-full" style={{ background: accent }} />
-            )}
           </button>
-          {menu.categories.map((cat) => (
-            <button
-              key={cat.slug}
-              onClick={() => {
-                setActiveSlug(cat.slug);
-                navigate(`/categories/${cat.slug}`);
-              }}
-              className="flex flex-col items-center gap-1.5 flex-shrink-0"
-            >
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all"
-                style={{
-                  background: activeSlug === cat.slug ? `${accent}22` : "rgba(255,255,255,0.05)",
-                  border: activeSlug === cat.slug ? `2px solid ${accent}` : "2px solid transparent",
+
+          {menu.categories.map((cat) => {
+            const thumb = cat.imageUrl ?? cat.products.find((p: { imageUrl?: string }) => p.imageUrl)?.imageUrl;
+            const isActive = activeSlug === cat.slug;
+            return (
+              <button
+                key={cat.slug}
+                onClick={() => {
+                  setActiveSlug(cat.slug);
+                  navigate(`/categories/${cat.slug}`);
                 }}
+                className="flex flex-col items-center gap-2 flex-shrink-0 w-[68px]"
               >
-                {cat.emoji || getCategoryIcon(cat.slug)}
-              </div>
-              <span
-                className="text-[10px] font-medium text-center max-w-[56px] leading-tight"
-                style={{ color: activeSlug === cat.slug ? accent : "rgba(255,255,255,0.5)" }}
-              >
-                {cat.name}
-              </span>
-              {activeSlug === cat.slug && (
-                <div className="w-4 h-0.5 rounded-full" style={{ background: accent }} />
-              )}
-            </button>
-          ))}
+                <div
+                  className="w-16 h-16 rounded-2xl relative overflow-hidden transition-all"
+                  style={{
+                    border: isActive ? `2px solid ${accent}` : "2px solid transparent",
+                  }}
+                >
+                  {/* Thumbnail arka plan */}
+                  {thumb && (
+                    <img
+                      src={thumb}
+                      alt=""
+                      className="absolute inset-0 w-full h-full object-cover scale-110"
+                      style={{ filter: "brightness(0.45) blur(1px)" }}
+                    />
+                  )}
+                  {/* Renk bloğu (resim yoksa) */}
+                  {!thumb && (
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: isActive ? `${accent}20` : "rgba(255,255,255,0.05)" }}
+                    />
+                  )}
+                  {/* Emoji */}
+                  <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                    {cat.emoji || getCategoryIcon(cat.slug)}
+                  </div>
+                </div>
+                <span
+                  className="text-[10px] font-medium leading-tight text-center w-full line-clamp-2"
+                  style={{ color: isActive ? accent : "rgba(255,255,255,0.45)" }}
+                >
+                  {cat.name}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
