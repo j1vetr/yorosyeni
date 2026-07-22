@@ -163,24 +163,24 @@ export default function HomePage() {
 
       {/* Category Icon Bar */}
       <div className="mb-6 max-w-xl mx-auto">
-        <div className="flex gap-2.5 overflow-x-auto px-4 scrollbar-hide pb-1">
+        <div className="flex gap-3 overflow-x-auto px-4 scrollbar-hide pb-1">
           {/* Tümü */}
           <button
             onClick={() => setActiveSlug("all")}
-            className="flex flex-col items-center gap-2 flex-shrink-0 w-[68px]"
+            className="flex flex-col items-center gap-2 flex-shrink-0 w-20"
           >
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl transition-all"
+              className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl transition-all"
               style={{
-                background: activeSlug === "all" ? `${accent}20` : "rgba(255,255,255,0.05)",
+                background: activeSlug === "all" ? `${accent}20` : "rgba(255,255,255,0.07)",
                 border: activeSlug === "all" ? `2px solid ${accent}` : "2px solid transparent",
               }}
             >
               🍽️
             </div>
             <span
-              className="text-[10px] font-medium leading-tight text-center w-full line-clamp-2"
-              style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.45)" }}
+              className="text-[11px] font-medium leading-tight text-center w-full line-clamp-2"
+              style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.5)" }}
             >
               {tr.all}
             </span>
@@ -196,37 +196,31 @@ export default function HomePage() {
                   setActiveSlug(cat.slug);
                   navigate(`/categories/${cat.slug}`);
                 }}
-                className="flex flex-col items-center gap-2 flex-shrink-0 w-[68px]"
+                className="flex flex-col items-center gap-2 flex-shrink-0 w-20"
               >
                 <div
-                  className="w-16 h-16 rounded-2xl relative overflow-hidden transition-all"
+                  className="w-20 h-20 rounded-2xl relative overflow-hidden transition-all"
                   style={{
                     border: isActive ? `2px solid ${accent}` : "2px solid transparent",
                   }}
                 >
                   {thumb ? (
-                    /* Fotoğraf varsa: sadece fotoğraf */
-                    <img
-                      src={thumb}
-                      alt={cat.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={thumb} alt={cat.name} className="w-full h-full object-cover" />
                   ) : (
-                    /* Fotoğraf yoksa: renkli arka plan + emoji */
                     <>
                       <div
                         className="absolute inset-0"
-                        style={{ background: isActive ? `${accent}20` : "rgba(255,255,255,0.05)" }}
+                        style={{ background: isActive ? `${accent}20` : "rgba(255,255,255,0.07)" }}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                      <div className="absolute inset-0 flex items-center justify-center text-4xl">
                         {cat.emoji || getCategoryIcon(cat.slug)}
                       </div>
                     </>
                   )}
                 </div>
                 <span
-                  className="text-[10px] font-medium leading-tight text-center w-full line-clamp-2"
-                  style={{ color: isActive ? accent : "rgba(255,255,255,0.45)" }}
+                  className="text-[11px] font-medium leading-tight text-center w-full line-clamp-2"
+                  style={{ color: isActive ? accent : "rgba(255,255,255,0.5)" }}
                 >
                   {cat.name}
                 </span>
