@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
   ImageIcon, Eye, Image, ChevronDown, ChevronUp,
-  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle, Search, RefreshCw,
+  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle, Search, RefreshCw, Scale,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor,
@@ -730,6 +730,158 @@ function BulkImageModal({
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Üretiliyor…</>
               : <><Images className="w-4 h-4" /> {selectedJobs.length} Görsel Üret</>}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── BulkPortionModal ───────────────────────────────────────── */
+function BulkPortionModal({
+  products,
+  categories,
+  onClose,
+  onDone,
+}: {
+  products: Product[];
+  categories: Category[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+
+  type PortionJob = { productId: number; productName: string; categoryName?: string; portionMin?: number; portionMax?: number; portionUnit?: string; status: "pending" | "running" | "done" | "error"; error?: string };
+
+  const [jobs, setJobs] = useState<PortionJob[]>(() =>
+    products.map((p) => ({
+      productId:    p.id,
+      productName:  p.translations.find((t) => t.languageCode === "tr")?.name ?? p.slug,
+      categoryName: categories.find((c) => c.id === p.categoryId)?.translations.find((t) => t.languageCode === "tr")?.name,
+      status: "pending" as const,
+    }))
+  );
+
+  // Pre-select only products missing portionMin
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(products.filter((p) => !p.portionMin).map((p) => p.id))
+  );
+  const [running,  setRunning]  = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  function toggle(id: number) {
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function patchJob(id: number, patch: Partial<PortionJob>) {
+    setJobs((prev) => prev.map((j) => j.productId === id ? { ...j, ...patch } : j));
+  }
+
+  async function handleRun() {
+    const toProcess = jobs.filter((j) => selected.has(j.productId));
+    if (!toProcess.length) { toast({ title: "En az 1 ürün seçin", variant: "destructive" }); return; }
+    setRunning(true);
+    setProgress({ done: 0, total: toProcess.length });
+
+    for (let i = 0; i < toProcess.length; i++) {
+      const job = toProcess[i];
+      patchJob(job.productId, { status: "running" });
+      try {
+        const result = await apiFetch<{ portionMin?: number; portionMax?: number; portionUnit?: string }>(
+          "/ai/generate",
+          { method: "POST", body: JSON.stringify({ productName: job.productName, productId: job.productId, category: job.categoryName, languages: ["tr"] }) }
+        );
+        const min  = (result as any).portionMin  ?? null;
+        const max  = (result as any).portionMax  ?? null;
+        const unit = (result as any).portionUnit ?? null;
+        await apiFetch(`/products/${job.productId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ portionMin: min, portionMax: max, portionUnit: unit }),
+        });
+        patchJob(job.productId, { status: "done", portionMin: min, portionMax: max, portionUnit: unit });
+      } catch (err) {
+        patchJob(job.productId, { status: "error", error: String(err).slice(0, 80) });
+      }
+      setProgress({ done: i + 1, total: toProcess.length });
+    }
+
+    setRunning(false);
+    toast({ title: "Gramaj doldurma tamamlandı ✓" });
+    onDone();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <Scale className="w-4 h-4 text-amber-400" /> Toplu Gramaj Doldur
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Seçili ürünlerin gramajını AI tahmin eder. Yalnızca gramaj güncellenir, diğer veriler korunur.
+            </p>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-neutral-500 hover:text-white text-xl leading-none disabled:opacity-30">✕</button>
+        </div>
+
+        {/* Progress */}
+        {running && (
+          <div className="px-6 py-2 border-b border-neutral-800 shrink-0">
+            <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
+              <span>İşleniyor…</span><span>{progress.done} / {progress.total}</span>
+            </div>
+            <div className="w-full bg-neutral-800 rounded-full h-1"><div className="bg-amber-400 h-1 rounded-full transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} /></div>
+          </div>
+        )}
+
+        {/* List */}
+        <div className="overflow-y-auto flex-1 divide-y divide-neutral-800">
+          <div className="flex items-center gap-3 px-6 py-2 text-xs text-neutral-500">
+            <span>{selected.size} seçili</span>
+            <button onClick={() => setSelected(new Set(products.map((p) => p.id)))} className="underline hover:text-white">Tümünü seç</button>
+            <button onClick={() => setSelected(new Set(products.filter((p) => !p.portionMin).map((p) => p.id)))} className="underline hover:text-white">Eksikleri seç</button>
+            <button onClick={() => setSelected(new Set())} className="underline hover:text-white">Seçimi kaldır</button>
+          </div>
+          {jobs.map((job) => {
+            const isSel = selected.has(job.productId);
+            return (
+              <div key={job.productId} className="flex items-center gap-3 px-6 py-3">
+                <button onClick={() => !running && toggle(job.productId)} className="flex-shrink-0">
+                  {isSel ? <CheckSquare2 className="w-4 h-4 text-white" /> : <Square className="w-4 h-4 text-neutral-600" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{job.productName}</p>
+                  {job.status === "done" && job.portionMin && (
+                    <p className="text-xs text-emerald-400">
+                      {job.portionMin === job.portionMax ? `~${job.portionMin}` : `${job.portionMin}–${job.portionMax}`} {job.portionUnit}
+                    </p>
+                  )}
+                  {job.status === "error" && <p className="text-xs text-red-400 truncate">{job.error}</p>}
+                </div>
+                <div className="flex-shrink-0 text-xs text-neutral-600">
+                  {job.status === "running" && <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />}
+                  {job.status === "done"    && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  {job.status === "error"   && <XCircle className="w-3.5 h-3.5 text-red-400" />}
+                  {job.status === "pending" && (products.find((p) => p.id === job.productId)?.portionMin
+                    ? <span className="text-neutral-600 text-[10px]">mevcut</span>
+                    : <span className="text-amber-600 text-[10px]">eksik</span>)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-neutral-800 flex items-center justify-between shrink-0">
+          <span className="text-xs text-neutral-500">{selected.size} ürün seçili</span>
+          <div className="flex gap-2">
+            <button onClick={onClose} disabled={running} className="px-4 py-2 text-sm text-neutral-400 hover:text-white disabled:opacity-30 transition-colors">İptal</button>
+            <button
+              onClick={handleRun} disabled={running || !selected.size}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black text-sm font-semibold rounded-full hover:bg-amber-400 disabled:opacity-40 transition-colors"
+            >
+              {running ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Dolduruluyor…</> : <><Scale className="w-3.5 h-3.5" /> {selected.size} Ürünü Doldur</>}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1701,6 +1853,7 @@ export default function AdminProducts() {
   const [showBulkAdd,     setShowBulkAdd]     = useState(false);
   const [showBulkImage,   setShowBulkImage]   = useState(false);
   const [showBulkContent, setShowBulkContent] = useState(false);
+  const [showBulkPortion, setShowBulkPortion] = useState(false);
 
   async function handleBulkOptimize() {
     const withImages = products.filter((p) => p.imageUrl);
@@ -1806,6 +1959,9 @@ export default function AdminProducts() {
           <button onClick={() => setShowBulkImage(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <Images className="w-4 h-4" /> Toplu Görsel Üret
           </button>
+          <button onClick={() => setShowBulkPortion(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
+            <Scale className="w-4 h-4" /> Gramaj Doldur
+          </button>
           <button onClick={() => setShowBulkContent(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <RefreshCw className="w-4 h-4" /> İçerik Yenile
           </button>
@@ -1900,6 +2056,15 @@ export default function AdminProducts() {
           languages={languages}
           onClose={() => setShowBulkContent(false)}
           onDone={() => { setShowBulkContent(false); load(); }}
+        />
+      )}
+
+      {showBulkPortion && (
+        <BulkPortionModal
+          products={products}
+          categories={categories}
+          onClose={() => setShowBulkPortion(false)}
+          onDone={() => { setShowBulkPortion(false); load(); }}
         />
       )}
     </div>
