@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
   ImageIcon, Eye, Image, ChevronDown, ChevronUp,
-  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle, Search,
+  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle, Search, RefreshCw,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor,
@@ -729,6 +729,250 @@ function BulkImageModal({
   );
 }
 
+/* ─── BulkContentModal ────────────────────────────────────────── */
+type ContentJobStatus = "pending" | "running" | "done" | "error";
+
+interface ContentJob {
+  productId: number;
+  productName: string;
+  categoryName?: string;
+  status: ContentJobStatus;
+  error?: string;
+}
+
+function BulkContentModal({
+  products,
+  categories,
+  languages,
+  onClose,
+  onDone,
+}: {
+  products: Product[];
+  categories: Category[];
+  languages: Language[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+
+  const [jobs, setJobs] = useState<ContentJob[]>(() =>
+    products.map((p) => ({
+      productId:   p.id,
+      productName: p.translations.find((t) => t.languageCode === "tr")?.name ?? p.slug,
+      categoryName: categories.find((c) => c.id === p.categoryId)
+        ?.translations.find((t) => t.languageCode === "tr")?.name,
+      status: "pending" as ContentJobStatus,
+    }))
+  );
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(products.map((p) => p.id))
+  );
+  const [running,  setRunning]  = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  function toggle(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function selectAll()  { setSelected(new Set(products.map((p) => p.id))); }
+  function selectNone() { setSelected(new Set()); }
+
+  function patchJob(id: number, patch: Partial<ContentJob>) {
+    setJobs((prev) => prev.map((j) => j.productId === id ? { ...j, ...patch } : j));
+  }
+
+  async function handleRun() {
+    const toProcess = jobs.filter((j) => selected.has(j.productId));
+    if (!toProcess.length) {
+      toast({ title: "En az 1 ürün seçin", variant: "destructive" });
+      return;
+    }
+    if (!confirm(`${toProcess.length} ürünün alerjen, içindekiler ve besin değerleri silinip AI ile yeniden yazılacak. Devam edilsin mi?`)) return;
+
+    setRunning(true);
+    setProgress({ done: 0, total: toProcess.length });
+
+    const activeLangCodes = languages.filter((l) => l.isActive).map((l) => l.code);
+
+    for (let i = 0; i < toProcess.length; i++) {
+      const job = toProcess[i];
+      patchJob(job.productId, { status: "running" });
+
+      try {
+        const product = products.find((p) => p.id === job.productId)!;
+
+        /* ── Mevcut çevirileri al, isimleri koru ── */
+        const existingTranslations = product.translations;
+
+        /* ── AI'ya gönder ── */
+        const result = await apiFetch<{
+          allergens: string[];
+          nutritionFacts: { energy: number; protein: number; carbs: number; fat: number };
+          calories: number;
+          translations: Record<string, {
+            name: string;
+            description: string;
+            ingredients: string;
+            allergenNote: string;
+          }>;
+        }>("/ai/generate", {
+          method: "POST",
+          body: JSON.stringify({
+            productName: job.productName,
+            productId:   job.productId,
+            category:    job.categoryName,
+            languages:   activeLangCodes,
+          }),
+        });
+
+        /* ── Mevcut çevirileri AI sonucuyla birleştir (isim & specialNote korunur) ── */
+        const mergedTranslations = activeLangCodes.map((code) => {
+          const existing = existingTranslations.find((t) => t.languageCode === code);
+          const aiTr     = result.translations?.[code];
+          return {
+            languageCode: code,
+            name:         existing?.name || aiTr?.name || job.productName,
+            description:  aiTr?.description  ?? existing?.description  ?? "",
+            ingredients:  aiTr?.ingredients  ?? existing?.ingredients  ?? "",
+            allergenNote: aiTr?.allergenNote  ?? "",
+            specialNote:  existing?.specialNote ?? "",
+          };
+        });
+
+        /* ── Kaydet ── */
+        await apiFetch(`/products/${job.productId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            allergens:      result.allergens      ?? [],
+            calories:       result.calories       ?? null,
+            nutritionFacts: result.nutritionFacts ?? {},
+            translations:   mergedTranslations,
+          }),
+        });
+
+        patchJob(job.productId, { status: "done" });
+      } catch (err) {
+        patchJob(job.productId, { status: "error", error: String(err).slice(0, 100) });
+      }
+
+      setProgress({ done: i + 1, total: toProcess.length });
+    }
+
+    setRunning(false);
+    toast({ title: "İçerik yenileme tamamlandı ✓" });
+    onDone();
+  }
+
+  const selectedJobs = jobs.filter((j) => selected.has(j.productId));
+
+  const statusIcon = (s: ContentJobStatus) => {
+    if (s === "running") return <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />;
+    if (s === "done")    return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
+    if (s === "error")   return <XCircle className="w-3.5 h-3.5 text-red-400" />;
+    return null;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-amber-400" /> İçerik Yenile
+            </h2>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Alerjenler, içindekiler ve besin değerleri AI ile yeniden yazılır. Ürün adı, fotoğraf ve fiyat korunur.
+            </p>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-neutral-400 hover:text-white disabled:opacity-30 transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Seçim kontrolü */}
+        <div className="px-6 pt-3 pb-2 flex items-center gap-3 shrink-0 border-b border-neutral-800/60">
+          <span className="text-xs text-neutral-500">Seç:</span>
+          <button onClick={selectAll}  disabled={running} className="text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors">Tümü</button>
+          <button onClick={selectNone} disabled={running} className="text-xs text-neutral-400 hover:text-white disabled:opacity-30 transition-colors">Hiçbiri</button>
+          <span className="ml-auto text-xs text-neutral-500">{selectedJobs.length} / {jobs.length} seçili</span>
+        </div>
+
+        {/* Ürün listesi */}
+        <div className="overflow-y-auto flex-1 px-6 py-3 space-y-1">
+          {jobs.map((job) => (
+            <button
+              key={job.productId}
+              onClick={() => !running && toggle(job.productId)}
+              disabled={running}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all disabled:cursor-default ${
+                selected.has(job.productId)
+                  ? "border-amber-800/50 bg-amber-950/20"
+                  : "border-neutral-800 bg-neutral-800/30 hover:border-neutral-700"
+              }`}
+            >
+              <div className="shrink-0 text-neutral-500">
+                {selected.has(job.productId)
+                  ? <CheckSquare2 className="w-4 h-4 text-amber-400" />
+                  : <Square className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-white truncate">{job.productName}</div>
+                <div className="text-[10px] text-neutral-500">{job.categoryName ?? "—"}</div>
+              </div>
+              <div className="shrink-0 w-5 flex items-center justify-center">
+                {statusIcon(job.status)}
+              </div>
+              {job.status === "error" && job.error && (
+                <span className="absolute right-12 text-[9px] text-red-400 max-w-[160px] truncate">{job.error}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Progress bar */}
+        {running && (
+          <div className="px-6 py-3 border-t border-neutral-800 shrink-0">
+            <div className="flex justify-between text-xs text-neutral-400 mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-400" /> AI içerik yazıyor…
+              </span>
+              <span>{progress.done} / {progress.total}</span>
+            </div>
+            <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-neutral-800 shrink-0">
+          <button onClick={onClose} disabled={running} className="flex-1 py-2.5 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-white disabled:opacity-30 transition-colors">
+            Kapat
+          </button>
+          <button
+            onClick={handleRun}
+            disabled={running || selectedJobs.length === 0}
+            className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg,#C9A84C1A,#C9A84C0D)", border: "1px solid #C9A84C66", color: "#C9A84C" }}
+          >
+            {running
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Yazılıyor…</>
+              : <><RefreshCw className="w-4 h-4" /> {selectedJobs.length} Ürünü Yenile</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatViewCount(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
   return String(n);
@@ -1398,8 +1642,9 @@ export default function AdminProducts() {
   const sensors = useSensors(useSensor(PointerSensor));
   const [bulkOptimizing, setBulkOptimizing] = useState(false);
   const [bulkProgress,   setBulkProgress]   = useState<{ done: number; total: number } | null>(null);
-  const [showBulkAdd,    setShowBulkAdd]    = useState(false);
-  const [showBulkImage,  setShowBulkImage]  = useState(false);
+  const [showBulkAdd,     setShowBulkAdd]     = useState(false);
+  const [showBulkImage,   setShowBulkImage]   = useState(false);
+  const [showBulkContent, setShowBulkContent] = useState(false);
 
   async function handleBulkOptimize() {
     const withImages = products.filter((p) => p.imageUrl);
@@ -1505,6 +1750,9 @@ export default function AdminProducts() {
           <button onClick={() => setShowBulkImage(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <Images className="w-4 h-4" /> Toplu Görsel Üret
           </button>
+          <button onClick={() => setShowBulkContent(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
+            <RefreshCw className="w-4 h-4" /> İçerik Yenile
+          </button>
           <button onClick={() => setShowBulkAdd(true)} className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors">
             <ListPlus className="w-4 h-4" /> Toplu Ekle
           </button>
@@ -1586,6 +1834,16 @@ export default function AdminProducts() {
           categories={categories}
           onClose={() => setShowBulkImage(false)}
           onDone={() => { load(); }}
+        />
+      )}
+
+      {showBulkContent && (
+        <BulkContentModal
+          products={products}
+          categories={categories}
+          languages={languages}
+          onClose={() => setShowBulkContent(false)}
+          onDone={() => { setShowBulkContent(false); load(); }}
         />
       )}
     </div>
