@@ -1,6 +1,5 @@
 import { createContext, useContext, ReactNode, useEffect } from "react";
 import { useMenuData, MenuData, formatPrice, LANG_FLAGS, RTL_LANGS } from "@/hooks/use-menu-data";
-import FloatingInfo from "@/components/menu/floating-info";
 
 interface MenuContextValue {
   menu: MenuData | null;
@@ -24,7 +23,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
   return (
     <MenuContext.Provider value={value}>
       {children}
-      <FloatingInfo />
     </MenuContext.Provider>
   );
 }
