@@ -28,7 +28,18 @@ export default function LanguagePage() {
     <div className="luna-menu min-h-screen pb-24 relative overflow-hidden">
       <div className="flex flex-col items-center pt-12 pb-8 px-4">
         {menu?.restaurant.logoUrl ? (
-          <img src={menu.restaurant.logoUrl} alt={menu.restaurant.name} className="h-12 object-contain mb-2" />
+          <img
+            src={menu.restaurant.logoUrl}
+            alt={menu.restaurant.name}
+            style={{
+              maxWidth: `${menu.restaurant.logoWidth ?? 180}px`,
+              maxHeight: "120px",
+              width: "100%",
+              objectFit: "contain",
+              background: "transparent",
+            }}
+            className="mb-2"
+          />
         ) : (
           <div className="mb-2">
             <div className="text-2xl font-bold text-white tracking-widest uppercase">
