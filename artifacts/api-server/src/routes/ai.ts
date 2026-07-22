@@ -305,7 +305,7 @@ router.post("/ai/generate", requireAuth, async (req, res): Promise<void> => {
   const targetLangs = languages?.length ? languages : ["tr", "en", "ru", "ar"];
   const langNames: Record<string, string> = { tr: "Turkish", en: "English", ru: "Russian", ar: "Arabic" };
 
-  const prompt = `You are a menu copywriter for an authentic everyday Turkish restaurant (lokanta/büfe/kebapçı). Your job is to write honest, appetizing descriptions that match how the dish ACTUALLY looks and tastes in Turkey — not fine dining language.
+  const prompt = `You are a menu copywriter for an authentic everyday Turkish restaurant (lokanta/büfe/kebapçı). Write honest, appetizing content matching how the dish ACTUALLY looks and tastes in Turkey — not fine dining language.
 
 Generate complete menu content for:
 Product: "${productName}"${category ? `\nCategory: "${category}"` : ""}
@@ -320,19 +320,31 @@ Respond ONLY with a valid JSON object matching this exact shape:
   }
 }
 
-Rules:
-- allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam, lupin, yumuşakça, sülfitler
-- nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams (realistic for a restaurant portion)
-- calories: total kcal (same as nutritionFacts.energy)
-- translations["tr"].name: keep the original Turkish name exactly as given — do NOT translate or modify it
-- translations["tr"].description: describe how it actually looks and tastes in Turkey, max 60 words, warm and appetizing tone, no fine-dining language
-- translations["en"].name: use the internationally recognised English name — examples: "Doner Kebab" (NOT "Meat Döner"), "Meatball Plate" (NOT "Köfte"), "Turkish Flatbread" for pide, "Lentil Soup" for mercimek çorbası; keep Turkish loanwords that are globally known (döner, kebab, baklava, ayran, lahmacun, börek)
-- translations["en"].description: describe it as British/American diners would expect — honest, no over-promising, max 60 words
-- translations["ru"].name: use the standard Russian name for Turkish food if one exists; otherwise transliterate naturally (e.g. Донер-кебаб, Кофте, Пиде)
-- translations["ar"].name: use the Arabic name commonly used in Arab countries for this dish if known; otherwise transliterate
-- All descriptions: max 60 words, start with uppercase, NO words like "artisanal", "gourmet", "exquisite", "decadent" — write for a real restaurant, not a food magazine
-- translations[lang].ingredients: comma-separated list of main ingredients in that language
-- translations[lang].allergenNote: allergen warning sentence in that language (empty string if no allergens)
+NUTRITION RULES (most important — must be realistic and SPECIFIC to this product):
+- nutritionFacts.energy and calories: realistic kcal for ONE restaurant serving of "${productName}" — NOT a generic number
+  Examples of realistic ranges: soup 80-180 kcal, salad 100-250 kcal, sandwich/döner 400-700 kcal, grilled meat 350-600 kcal, dessert 300-600 kcal, drink 30-200 kcal, tea/black coffee ~5 kcal
+- protein: grams of protein realistic for this specific dish (meat dishes high 25-45g, soups 5-12g, drinks 0-3g)
+- carbs: grams realistic for this specific dish (bread/rice dishes high 50-90g, meat-only low 0-5g, drinks with sugar 20-40g)
+- fat: grams realistic for this specific dish (fried foods high 15-35g, grilled 8-20g, salad 5-15g)
+- calories must equal approximately: protein×4 + carbs×4 + fat×9
+- NEVER use the same values for different products — each product must have unique, product-specific nutrition
+
+ALLERGEN RULES:
+- allergens array: use ONLY these exact Turkish lowercase strings: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam, lupin, yumuşakça, sülfitler
+- Do NOT use English allergen names (no "dairy", "eggs", "nuts" etc.) — Turkish only
+
+TRANSLATION RULES:
+- translations["tr"].name: keep the original Turkish name exactly as given, do NOT change it
+- translations["tr"].ingredients: REQUIRED — comma-separated list of main ingredients written in Turkish (e.g. "tavuk, domates, soğan, biber, zeytinyağı") — MUST NOT be empty
+- translations["tr"].description: max 60 words, warm and appetizing, no fine-dining language
+- translations["en"].name: internationally recognised English name (e.g. "Doner Kebab", "Lentil Soup", "Meatball Plate")
+- translations["en"].ingredients: comma-separated list in English — MUST NOT be empty
+- translations["ru"].name: standard Russian name or natural transliteration
+- translations["ru"].ingredients: comma-separated list in Russian — MUST NOT be empty
+- translations["ar"].name: Arabic name or transliteration
+- translations["ar"].ingredients: comma-separated list in Arabic — MUST NOT be empty
+- All descriptions: max 60 words, NO words like "artisanal", "gourmet", "exquisite", "decadent"
+- translations[lang].allergenNote: allergen warning in that language (empty string "" if no allergens)
 - Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
 
   let tokensUsed: number | undefined;
