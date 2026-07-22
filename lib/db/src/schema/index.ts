@@ -42,6 +42,10 @@ export const settingsTable = pgTable("settings", {
   address: text("address"),
   description: text("description"),
   logoWidth: integer("logo_width"),
+  wifiName: text("wifi_name"),
+  wifiPassword: text("wifi_password"),
+  mapsUrl: text("maps_url"),
+  locationNotes: jsonb("location_notes").$type<Record<string, string>>().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

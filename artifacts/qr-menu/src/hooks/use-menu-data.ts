@@ -47,6 +47,10 @@ export interface RestaurantInfo {
   qualityNote?: string;
   address?: string;
   description?: string;
+  wifiName?: string;
+  wifiPassword?: string;
+  mapsUrl?: string;
+  locationNotes?: Record<string, string>;
 }
 
 export interface MenuData {

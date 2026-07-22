@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Copy, ExternalLink, Upload, ImageIcon, X } from "lucide-react";
+import { Save, Copy, ExternalLink, Upload, ImageIcon, X, Wifi, MapPin } from "lucide-react";
 
 interface Settings {
   id?: number;
@@ -14,6 +14,10 @@ interface Settings {
   currency: string;
   defaultLanguage: string;
   openAiKey?: string;
+  wifiName?: string;
+  wifiPassword?: string;
+  mapsUrl?: string;
+  locationNotes?: Record<string, string>;
 }
 
 interface Language {
@@ -389,6 +393,65 @@ export default function AdminSettings() {
           />
           <p className="mt-1 text-xs text-neutral-500">Ürün açıklama, içerik, besin değerleri ve AI görsel üretimi için kullanılır</p>
         </Field>
+      </div>
+
+      {/* ── Konum & WiFi ── */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">
+        <h2 className="text-sm font-medium text-white uppercase tracking-widest flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-neutral-400" /> Konum &amp; WiFi
+        </h2>
+        <p className="text-xs text-neutral-500">Müşteri menüsünde solda sabit ikon olarak görünür. Sadece doldurduğunuz alanlar gösterilir.</p>
+
+        {/* Konum */}
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-400 uppercase tracking-widest flex items-center gap-1.5"><MapPin className="w-3 h-3" /> Konum Bilgisi (Dil bazlı)</p>
+          {languages.filter((l) => l.isActive).map((lang) => (
+            <div key={lang.code} className="flex items-start gap-2">
+              <span className="mt-2.5 text-base w-6 text-center flex-shrink-0">{LANG_FLAGS[lang.code] ?? "🌐"}</span>
+              <textarea
+                rows={2}
+                value={form.locationNotes?.[lang.code] ?? ""}
+                onChange={(e) => setForm((prev) => ({
+                  ...prev,
+                  locationNotes: { ...(prev.locationNotes ?? {}), [lang.code]: e.target.value },
+                }))}
+                placeholder={`Konum bilgisi (${lang.name})`}
+                className="flex-1 bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white resize-none"
+              />
+            </div>
+          ))}
+          <Field label="Google Maps Linki">
+            <input
+              value={form.mapsUrl ?? ""}
+              onChange={(e) => set("mapsUrl", e.target.value)}
+              placeholder="https://maps.google.com/..."
+              className={inputCls}
+            />
+          </Field>
+        </div>
+
+        {/* WiFi */}
+        <div className="space-y-3 pt-3 border-t border-neutral-800">
+          <p className="text-xs text-neutral-400 uppercase tracking-widest flex items-center gap-1.5"><Wifi className="w-3 h-3" /> WiFi Bilgisi</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Ağ Adı (SSID)">
+              <input
+                value={form.wifiName ?? ""}
+                onChange={(e) => set("wifiName", e.target.value)}
+                placeholder="RestaurantWifi"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Şifre">
+              <input
+                value={form.wifiPassword ?? ""}
+                onChange={(e) => set("wifiPassword", e.target.value)}
+                placeholder="••••••••"
+                className={inputCls}
+              />
+            </Field>
+          </div>
+        </div>
       </div>
 
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5">

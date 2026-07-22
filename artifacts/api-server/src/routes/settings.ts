@@ -26,6 +26,10 @@ router.get("/settings/public", async (_req, res): Promise<void> => {
     qualityNote: settings.qualityNote ?? null,
     address: settings.address ?? null,
     description: settings.description ?? null,
+    wifiName: settings.wifiName ?? null,
+    wifiPassword: settings.wifiPassword ?? null,
+    mapsUrl: settings.mapsUrl ?? null,
+    locationNotes: (settings.locationNotes ?? {}) as Record<string, string>,
   });
 });
 
