@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { useLocation } from "wouter";
 import { Search, ArrowRight, Info } from "lucide-react"; // ArrowRight used in Featured section
 import { useMenu, formatPrice } from "@/contexts/menu-context";
@@ -144,7 +144,7 @@ export default function HomePage() {
                 className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
               >
                 {p.imageUrl && (
-                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                  <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" loading="lazy" decoding="async" />
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-white truncate">{p.name}</div>
@@ -202,7 +202,7 @@ export default function HomePage() {
                   }}
                 >
                   {thumb ? (
-                    <img src={thumb} alt={cat.name} className="w-full h-full object-cover" />
+                    <img src={thumb} alt={cat.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <>
                       <div
@@ -290,7 +290,7 @@ export default function HomePage() {
   );
 }
 
-function ProductCard({
+const ProductCard = memo(function ProductCard({
   product,
   accent,
   isFirst,
@@ -311,7 +311,7 @@ function ProductCard({
     >
       <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden flex items-center justify-center relative">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" loading="lazy" decoding="async" />
         ) : (
           <div
             className="w-full h-full flex items-center justify-center text-3xl"
@@ -345,4 +345,4 @@ function ProductCard({
       </div>
     </button>
   );
-}
+});
