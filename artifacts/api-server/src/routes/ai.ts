@@ -315,10 +315,21 @@ Respond ONLY with a valid JSON object matching this exact shape:
   "allergens": ["string"],
   "nutritionFacts": { "energy": number, "protein": number, "carbs": number, "fat": number },
   "calories": number,
+  "portionMin": number,
+  "portionMax": number,
+  "portionUnit": "g" | "ml" | "cl" | "adet",
   "translations": {
     ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "...", "ingredients": "...", "allergenNote": "..." }`).join(",\n    ")}
   }
 }
+
+PORTION RULES (must be realistic for ONE restaurant serving):
+- portionUnit: "g" for solid food, "ml" for liquid drinks, "cl" for shots/spirits, "adet" for countable items (e.g. meatballs, pieces)
+- portionMin / portionMax: estimate a realistic range for a single serving of this dish. Examples:
+  soup 220-280g, salad 150-200g, kebab/döner 280-350g, grilled meat 250-320g, rice/pilav 180-220g, börek/pastry 120-160g, dessert 100-150g,
+  tea 180-200ml, coffee 60-80ml, cold drinks/ayran 200-250ml, fresh juice 200-300ml, beer 300-350ml
+- portionMin must be ≤ portionMax; for items where the range is tight (±20g), you may use the same value for both
+- NEVER set portionUnit to "g" for drinks or "ml" for solid food
 
 NUTRITION RULES (most important — must be realistic and SPECIFIC to this product):
 - nutritionFacts.energy and calories: realistic kcal for ONE restaurant serving of "${productName}" — NOT a generic number

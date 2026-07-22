@@ -89,6 +89,15 @@ export default function ProductDetailPage() {
             <span className="text-2xl font-bold" style={{ color: accent }}>
               {formatPrice(product.price, product.currency)}
             </span>
+            {product.portionMin && product.portionUnit && (
+              <span className="text-sm text-white/40 bg-white/6 border border-white/8 px-3 py-1 rounded-full">
+                ⚖️&nbsp;
+                {product.portionMin === product.portionMax
+                  ? `~${product.portionMin}`
+                  : `${product.portionMin}–${product.portionMax}`}
+                &nbsp;{product.portionUnit}
+              </span>
+            )}
           </div>
         </div>
 

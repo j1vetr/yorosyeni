@@ -20,6 +20,9 @@ export interface ProductData {
   currency: string;
   imageUrl?: string;
   isPopular?: boolean;
+  portionMin?: number;
+  portionMax?: number;
+  portionUnit?: string;
   calories?: number;
   allergens?: string[];
   nutritionFacts?: NutritionFacts;

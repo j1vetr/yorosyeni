@@ -113,6 +113,9 @@ export const productsTable = pgTable(
     isActive: boolean("is_active").default(true).notNull(),
     sortOrder: integer("sort_order").default(0).notNull(),
     isPopular: boolean("is_popular").default(false).notNull(),
+    portionMin: integer("portion_min"),
+    portionMax: integer("portion_max"),
+    portionUnit: varchar("portion_unit", { length: 8 }),
     calories: integer("calories"),
     allergens: jsonb("allergens").$type<string[]>().default([]),
     nutritionFacts: jsonb("nutrition_facts")

@@ -44,6 +44,9 @@ interface Product {
   isActive: boolean;
   isPopular: boolean;
   sortOrder: number;
+  portionMin?: number;
+  portionMax?: number;
+  portionUnit?: string;
   calories?: number;
   allergens?: string[];
   nutritionFacts?: NutritionFacts;
@@ -291,7 +294,7 @@ function BulkAddModal({
       if (row.status === "error") { setSvProg({ done: i + 1, total: validRows.length }); continue; }
       updateRow(row.id, { status: "saving" });
       try {
-        const ai   = aiData[row.id] as { translations?: Record<string, { name: string; description: string; ingredients: string; allergenNote: string }>; allergens?: string[]; nutritionFacts?: object; calories?: number } | undefined;
+        const ai   = aiData[row.id] as { translations?: Record<string, { name: string; description: string; ingredients: string; allergenNote: string }>; allergens?: string[]; nutritionFacts?: object; calories?: number; portionMin?: number; portionMax?: number; portionUnit?: string } | undefined;
         const base = row.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
         const slug = `${base}-${Date.now()}`;
         await apiFetch("/products", {
@@ -302,6 +305,9 @@ function BulkAddModal({
             price: parseFloat(row.price),
             isActive: true,
             calories: ai?.calories,
+            portionMin: ai?.portionMin ?? null,
+            portionMax: ai?.portionMax ?? null,
+            portionUnit: ai?.portionUnit ?? null,
             allergens: ai?.allergens ?? [],
             nutritionFacts: ai?.nutritionFacts ?? {},
             translations: ai?.translations
@@ -850,6 +856,9 @@ function BulkContentModal({
             allergens:      result.allergens      ?? [],
             calories:       result.calories       ?? null,
             nutritionFacts: result.nutritionFacts ?? {},
+            portionMin:     (result as any).portionMin  ?? null,
+            portionMax:     (result as any).portionMax  ?? null,
+            portionUnit:    (result as any).portionUnit ?? null,
             translations:   mergedTranslations,
           }),
         });
@@ -1131,6 +1140,9 @@ function ProductModal({
   const [price,      setPrice]      = useState(String(product?.price ?? ""));
   const [isActive,   setIsActive]   = useState(product?.isActive ?? true);
   const [isPopular,  setIsPopular]  = useState(product?.isPopular ?? false);
+  const [portionMin, setPortionMin] = useState(String(product?.portionMin ?? ""));
+  const [portionMax, setPortionMax] = useState(String(product?.portionMax ?? ""));
+  const [portionUnit, setPortionUnit] = useState(product?.portionUnit ?? "g");
   const [imageUrl,   setImageUrl]   = useState(product?.imageUrl ?? "");
   const [calories,   setCalories]   = useState(String(product?.calories ?? ""));
 
@@ -1216,6 +1228,9 @@ function ProductModal({
       if (result.allergens?.length) setAllergens(result.allergens.map(normalizeAllergenKey));
       if (result.calories)       setCalories(String(result.calories));
       if (result.nutritionFacts) setNutrition(result.nutritionFacts);
+      if ((result as any).portionMin) setPortionMin(String((result as any).portionMin));
+      if ((result as any).portionMax) setPortionMax(String((result as any).portionMax));
+      if ((result as any).portionUnit) setPortionUnit((result as any).portionUnit);
 
       setTranslations((prev) =>
         prev.map((t) => {
@@ -1287,6 +1302,9 @@ function ProductModal({
         price:        parseFloat(price) || 0,
         isActive,
         isPopular,
+        portionMin:   portionMin ? parseInt(portionMin) : null,
+        portionMax:   portionMax ? parseInt(portionMax) : null,
+        portionUnit:  portionMin || portionMax ? portionUnit : null,
         imageUrl:     imageUrl || undefined,
         calories:     calories ? parseInt(calories) : undefined,
         allergens,
@@ -1394,6 +1412,29 @@ function ProductModal({
                   className={`${numInputCls} ${aiFlash && calories ? "ring-1 ring-amber-500/50" : ""}`}
                 />
               </div>
+            </div>
+
+            {/* Gramaj */}
+            <div>
+              <label className="block text-xs text-neutral-400 mb-1.5">Gramaj / Hacim (porsiyon aralığı)</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number" value={portionMin} onChange={(e) => setPortionMin(e.target.value)} placeholder="min"
+                  className={`${numInputCls} flex-1 ${aiFlash && portionMin ? "ring-1 ring-amber-500/50" : ""}`}
+                />
+                <span className="text-neutral-500 text-sm flex-shrink-0">–</span>
+                <input
+                  type="number" value={portionMax} onChange={(e) => setPortionMax(e.target.value)} placeholder="max"
+                  className={`${numInputCls} flex-1 ${aiFlash && portionMax ? "ring-1 ring-amber-500/50" : ""}`}
+                />
+                <select value={portionUnit} onChange={(e) => setPortionUnit(e.target.value)} className={`${inputCls} w-20 flex-shrink-0`}>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                  <option value="cl">cl</option>
+                  <option value="adet">adet</option>
+                </select>
+              </div>
+              <p className="mt-1 text-xs text-neutral-600">AI otomatik doldurur. Yemek → g, içecek → ml. Örn: 200 – 250 g</p>
             </div>
 
             <div className="flex items-center gap-3">
