@@ -20,6 +20,12 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty("--luna-accent", value.accent);
   }, [value.accent]);
 
+  useEffect(() => {
+    if (value.menu?.restaurant?.name) {
+      document.title = `${value.menu.restaurant.name} — Menü`;
+    }
+  }, [value.menu?.restaurant?.name]);
+
   return (
     <MenuContext.Provider value={value}>
       {children}

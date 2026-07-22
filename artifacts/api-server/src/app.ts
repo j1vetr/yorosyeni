@@ -5,6 +5,9 @@ import session from "express-session";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import path from "path";
+import fs from "fs/promises";
+import { db } from "./lib/db";
+import { settingsTable } from "@workspace/db/schema";
 
 declare module "express-session" {
   interface SessionData {
@@ -101,12 +104,35 @@ app.use(
 
 app.use("/api", router);
 
-// Production: serve built frontend static files
+// Production: serve built frontend static files with dynamic meta injection
 if (isProd) {
   const staticDir = path.resolve(process.cwd(), "artifacts/qr-menu/dist/public");
   app.use(express.static(staticDir));
-  app.use((_req, res) => {
-    res.sendFile(path.join(staticDir, "index.html"));
+
+  // Cache injected HTML to avoid hitting DB on every page load
+  let cachedHtml: string | null = null;
+  let cacheTime = 0;
+  const CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+  app.use(async (_req, res) => {
+    try {
+      const now = Date.now();
+      if (!cachedHtml || now - cacheTime > CACHE_TTL) {
+        const template = await fs.readFile(path.join(staticDir, "index.html"), "utf-8");
+        const rows = await db.select().from(settingsTable).limit(1);
+        const settings = rows[0];
+        const name = settings?.restaurantName ?? "Menü";
+        const logo = settings?.logoUrl ?? "";
+        cachedHtml = template
+          .replace(/__RESTAURANT_NAME__/g, name)
+          .replace(/__RESTAURANT_LOGO__/g, logo);
+        cacheTime = now;
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(cachedHtml);
+    } catch {
+      res.sendFile(path.join(staticDir, "index.html"));
+    }
   });
 }
 
