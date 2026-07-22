@@ -5,16 +5,17 @@ import {
   categoryTranslationsTable,
   productsTable,
   productTranslationsTable,
+  settingsTable,
+  aiGenerationLogsTable,
 } from "@workspace/db/schema";
 import { requireAuth } from "../lib/auth";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import sharp from "sharp";
 import { saveLocalFile, ensureUploadsDir, isReplitEnv } from "../lib/localFileStorage";
 import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
-const SOURCE = "https://yoros.dijita.com.tr";
 
 /* ── helpers ──────────────────────────────────────────────────── */
 
@@ -49,10 +50,13 @@ async function uniqueSlug(base: string, kind: "category" | "product"): Promise<s
   }
 }
 
-async function downloadAndStore(relUrl: string): Promise<string | null> {
+async function downloadAndStore(relUrl: string, sourceBase: string): Promise<string | null> {
   try {
-    const url = relUrl.startsWith("http") ? relUrl : `${SOURCE}/${relUrl.replace(/^\//, "")}`;
-    const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    const url = relUrl.startsWith("http") ? relUrl : `${sourceBase}/${relUrl.replace(/^\//, "")}`;
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; QRMenuImporter/1.0)" },
+      signal: AbortSignal.timeout(20000),
+    });
     if (!resp.ok) return null;
     const raw = Buffer.from(await resp.arrayBuffer());
     const optimized = await sharp(raw)
@@ -67,7 +71,6 @@ async function downloadAndStore(relUrl: string): Promise<string | null> {
       return `/api/storage/local/${uuid}`;
     }
 
-    // Replit: upload via object storage presigned URL
     const svc = new ObjectStorageService();
     const uploadUrl = await svc.getObjectEntityUploadURL();
     const put = await fetch(uploadUrl, {
@@ -91,12 +94,12 @@ interface RawProduct {
   menu_images: string; menu_cat: number; cat_name: string;
 }
 
-async function fetchHtml(path: string): Promise<string> {
-  const resp = await fetch(`${SOURCE}${path}`, {
+async function fetchHtml(url: string): Promise<string> {
+  const resp = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; QRMenuImporter/1.0)" },
     signal: AbortSignal.timeout(20000),
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${path}`);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
   return resp.text();
 }
 
@@ -127,7 +130,17 @@ function parseProducts(html: string): RawProduct[] {
   return results;
 }
 
-/* ── SSE import endpoint ──────────────────────────────────────── */
+function normalizeSourceUrl(raw: string): string {
+  let url = raw.trim();
+  if (!url.startsWith("http")) url = `https://${url}`;
+  url = url.replace(/\/$/, "");
+  return url;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   POST /import/scrape
+   Body: { siteUrl?: string }
+   ══════════════════════════════════════════════════════════════ */
 
 router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
   res.setHeader("Content-Type", "text/event-stream");
@@ -150,10 +163,18 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
   let prodCount = 0;
 
   try {
+    const rawUrl: string = req.body?.siteUrl || "https://yoros.dijita.com.tr";
+    const SOURCE = normalizeSourceUrl(rawUrl);
+    send({ type: "log", msg: `Kaynak: ${SOURCE}` });
+
     /* 1. Fetch & parse categories */
     send({ type: "log", msg: "Kategoriler çekiliyor…" });
-    const catHtml = await fetchHtml("/categories");
+    const catHtml = await fetchHtml(`${SOURCE}/categories`);
     const rawCats = parseCategories(catHtml);
+    if (!rawCats.length) {
+      send({ type: "error", msg: "Kategori bulunamadı. URL yapısı uyumsuz olabilir." });
+      res.end(); return;
+    }
     send({ type: "log", msg: `${rawCats.length} kategori bulundu.` });
 
     /* 2. Fetch all category product pages */
@@ -165,13 +186,10 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
       const cat = rawCats[i];
       send({ type: "progress", done: i, total: rawCats.length, label: `Kategori: ${cat.name}` });
       try {
-        const html = await fetchHtml(`/categories?category=${cat.id}`);
+        const html = await fetchHtml(`${SOURCE}/categories?category=${cat.id}`);
         const prods = parseProducts(html);
         const ids = new Set<number>();
-        for (const p of prods) {
-          allProducts.set(p.id, p);
-          ids.add(p.id);
-        }
+        for (const p of prods) { allProducts.set(p.id, p); ids.add(p.id); }
         catProductIds.set(cat.id, ids);
         send({ type: "log", msg: `  ${cat.name}: ${prods.length} ürün` });
       } catch (e) {
@@ -182,18 +200,18 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
     send({ type: "progress", done: rawCats.length, total: rawCats.length, label: "Ürünler çekildi" });
     send({ type: "log", msg: `Toplam ${allProducts.size} ürün bulundu.` });
 
-    /* 3. Download & store images — categories */
+    /* 3. Kategori görselleri */
     send({ type: "log", msg: "Kategori görselleri indiriliyor…" });
     const catImageMap = new Map<number, string>();
     for (let i = 0; i < rawCats.length; i++) {
       const cat = rawCats[i];
       send({ type: "progress", done: i, total: rawCats.length, label: `Görsel: ${cat.name}` });
-      const url = await downloadAndStore(cat.imgUrl);
+      const url = await downloadAndStore(cat.imgUrl, SOURCE);
       if (url) catImageMap.set(cat.id, url);
       else errors.push(`Kategori görseli indirilemedi: ${cat.name}`);
     }
 
-    /* 4. Download & store images — products */
+    /* 4. Ürün görselleri */
     send({ type: "log", msg: "Ürün görselleri indiriliyor…" });
     const prodList = [...allProducts.values()];
     const prodImageMap = new Map<number, string>();
@@ -201,26 +219,22 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
       const p = prodList[i];
       send({ type: "progress", done: i, total: prodList.length, label: `Görsel: ${p.menu_name}` });
       if (p.menu_images) {
-        const url = await downloadAndStore(p.menu_images);
+        const url = await downloadAndStore(p.menu_images, SOURCE);
         if (url) prodImageMap.set(p.id, url);
       }
     }
     send({ type: "progress", done: prodList.length, total: prodList.length, label: "Görseller tamamlandı" });
 
-    /* 5. Insert categories */
+    /* 5. Kategorileri DB'ye yaz */
     send({ type: "log", msg: "Kategoriler veritabanına yazılıyor…" });
-    const catIdMap = new Map<number, number>(); // oldId → newId
+    const catIdMap = new Map<number, number>();
 
     for (let i = 0; i < rawCats.length; i++) {
       const cat = rawCats[i];
       const baseSlug = slugify(cat.name) || `kategori-${cat.id}`;
-
       try {
-        const existingBySlug = await db
-          .select({ id: categoriesTable.id })
-          .from(categoriesTable)
-          .where(eq(categoriesTable.slug, baseSlug))
-          .limit(1);
+        const existingBySlug = await db.select({ id: categoriesTable.id })
+          .from(categoriesTable).where(eq(categoriesTable.slug, baseSlug)).limit(1);
 
         if (existingBySlug.length) {
           send({ type: "log", msg: `  ⏭ Atlıyor (mevcut): ${cat.name}` });
@@ -229,17 +243,11 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
         }
 
         const slug = await uniqueSlug(baseSlug, "category");
-        const [created] = await db
-          .insert(categoriesTable)
+        const [created] = await db.insert(categoriesTable)
           .values({ slug, imageUrl: catImageMap.get(cat.id) ?? null, sortOrder: i, isActive: true })
           .returning();
 
-        await db.insert(categoryTranslationsTable).values({
-          categoryId: created.id,
-          languageCode: "tr",
-          name: cat.name,
-        });
-
+        await db.insert(categoryTranslationsTable).values({ categoryId: created.id, languageCode: "tr", name: cat.name });
         catIdMap.set(cat.id, created.id);
         catCount++;
         send({ type: "log", msg: `  ✓ ${cat.name}` });
@@ -249,25 +257,18 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
       }
     }
 
-    /* 6. Insert products */
+    /* 6. Ürünleri DB'ye yaz */
     send({ type: "log", msg: "Ürünler veritabanına yazılıyor…" });
     let pi = 0;
     for (const p of prodList) {
       const newCatId = catIdMap.get(p.menu_cat);
-      if (!newCatId) {
-        errors.push(`Ürün kategorisi bulunamadı (${p.menu_name})`);
-        continue;
-      }
+      if (!newCatId) { errors.push(`Ürün kategorisi bulunamadı (${p.menu_name})`); continue; }
 
       const baseSlug = slugify(p.menu_name) || `urun-${p.id}`;
       const price = parseFloat(p.menu_price) || 0;
-
       try {
-        const existingBySlug = await db
-          .select({ id: productsTable.id })
-          .from(productsTable)
-          .where(eq(productsTable.slug, baseSlug))
-          .limit(1);
+        const existingBySlug = await db.select({ id: productsTable.id })
+          .from(productsTable).where(eq(productsTable.slug, baseSlug)).limit(1);
 
         if (existingBySlug.length) {
           send({ type: "log", msg: `  ⏭ Atlıyor (mevcut): ${p.menu_name}` });
@@ -275,25 +276,14 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
         }
 
         const slug = await uniqueSlug(baseSlug, "product");
-        const [created] = await db
-          .insert(productsTable)
-          .values({
-            categoryId: newCatId,
-            slug,
-            price,
-            currency: "TRY",
-            isActive: true,
-            sortOrder: pi,
-            imageUrl: prodImageMap.get(p.id) ?? null,
-          })
+        const [created] = await db.insert(productsTable)
+          .values({ categoryId: newCatId, slug, price, currency: "TRY", isActive: true, sortOrder: pi, imageUrl: prodImageMap.get(p.id) ?? null })
           .returning();
 
-        const desc = decodeEntities(p.menu_desc || "");
         await db.insert(productTranslationsTable).values({
-          productId: created.id,
-          languageCode: "tr",
+          productId: created.id, languageCode: "tr",
           name: decodeEntities(p.menu_name),
-          description: desc || null,
+          description: decodeEntities(p.menu_desc || "") || null,
         });
 
         prodCount++;
@@ -312,6 +302,271 @@ router.post("/import/scrape", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.end();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   POST /import/ai-enrich
+   Toplu AI zenginleştirme: eksik dil çevirisi + besin değerleri
+   ══════════════════════════════════════════════════════════════ */
+
+router.post("/import/ai-enrich", requireAuth, async (req, res): Promise<void> => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  type EventPayload =
+    | { type: "log"; msg: string }
+    | { type: "progress"; done: number; total: number; label: string }
+    | { type: "done"; enriched: number; errors: string[] }
+    | { type: "error"; msg: string };
+
+  const send = (payload: EventPayload) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  const errors: string[] = [];
+
+  try {
+    /* API key */
+    const [settings] = await db.select().from(settingsTable).limit(1);
+    const apiKey = settings?.openAiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      send({ type: "error", msg: "OpenAI API anahtarı ayarlanmamış. Önce Ayarlar sayfasından ekleyin." });
+      res.end(); return;
+    }
+
+    /* Determine which languages to enrich from body (default all) */
+    const targetLangs: string[] = req.body?.languages?.length
+      ? req.body.languages
+      : ["en", "ru", "ar"];
+    const enrichNutrition: boolean = req.body?.nutrition !== false;
+
+    send({ type: "log", msg: `Hedef diller: ${targetLangs.join(", ")}${enrichNutrition ? " + besin değerleri" : ""}` });
+
+    /* Find products that need enrichment */
+    const allProducts = await db
+      .select({
+        id: productsTable.id,
+        slug: productsTable.slug,
+        price: productsTable.price,
+        calories: productsTable.calories,
+        nutritionFacts: productsTable.nutritionFacts,
+        allergens: productsTable.allergens,
+      })
+      .from(productsTable)
+      .where(eq(productsTable.isActive, true));
+
+    /* Get all existing translations for these products */
+    const productIds = allProducts.map((p) => p.id);
+    const allTranslations = productIds.length
+      ? await db.select().from(productTranslationsTable)
+          .where(inArray(productTranslationsTable.productId, productIds))
+      : [];
+
+    const transByProduct = new Map<number, Map<string, typeof allTranslations[0]>>();
+    for (const t of allTranslations) {
+      if (!transByProduct.has(t.productId)) transByProduct.set(t.productId, new Map());
+      transByProduct.get(t.productId)!.set(t.languageCode, t);
+    }
+
+    /* Filter to only products that need work */
+    const toEnrich = allProducts.filter((p) => {
+      const langs = transByProduct.get(p.id) ?? new Map();
+      const missingLang = targetLangs.some((l) => !langs.has(l));
+      const missingNutrition = enrichNutrition && (!p.calories || !p.nutritionFacts || Object.keys(p.nutritionFacts as object || {}).length === 0);
+      return missingLang || missingNutrition;
+    });
+
+    if (!toEnrich.length) {
+      send({ type: "log", msg: "Tüm ürünler zaten zenginleştirilmiş — yapacak iş yok." });
+      send({ type: "done", enriched: 0, errors: [] });
+      res.end(); return;
+    }
+
+    send({ type: "log", msg: `${toEnrich.length} ürün zenginleştirilecek…` });
+
+    let enriched = 0;
+
+    const langNames: Record<string, string> = { tr: "Turkish", en: "English", ru: "Russian", ar: "Arabic" };
+
+    for (let i = 0; i < toEnrich.length; i++) {
+      const product = toEnrich[i];
+      const langs = transByProduct.get(product.id) ?? new Map();
+      const trName = langs.get("tr")?.name ?? product.slug;
+      const trDesc = langs.get("tr")?.description ?? "";
+      const catRow = await db
+        .select({ name: categoryTranslationsTable.name })
+        .from(categoryTranslationsTable)
+        .innerJoin(productsTable, eq(productsTable.categoryId, categoryTranslationsTable.categoryId))
+        .where(eq(productsTable.id, product.id))
+        .where(eq(categoryTranslationsTable.languageCode, "tr"))
+        .limit(1);
+      const catName = catRow[0]?.name ?? "";
+
+      const missingLangs = targetLangs.filter((l) => !langs.has(l));
+      const needsNutrition = enrichNutrition && (!product.calories || !product.nutritionFacts || Object.keys(product.nutritionFacts as object || {}).length === 0);
+
+      send({ type: "progress", done: i, total: toEnrich.length, label: trName });
+      send({ type: "log", msg: `  [${i + 1}/${toEnrich.length}] ${trName}` });
+
+      /* Build prompt */
+      const langSection = missingLangs.length
+        ? `Generate translations for these languages: ${missingLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}.`
+        : "";
+      const nutritionSection = needsNutrition ? "Also estimate nutritional values." : "";
+
+      const prompt = `You are a restaurant menu data enricher for an authentic everyday Turkish restaurant (büfe/lokanta/kebapçı).
+
+Product: "${trName}" (Category: "${catName}", Price: ${product.price} TRY)
+${trDesc ? `Turkish description: "${trDesc}"` : ""}
+
+${langSection}
+${nutritionSection}
+
+Respond ONLY with valid JSON:
+{
+  ${missingLangs.length ? `"translations": {
+    ${missingLangs.map((l) => `"${l}": {
+      "name": "...",
+      "description": "...",
+      "ingredients": "...",
+      "allergenNote": "..."
+    }`).join(",\n    ")}
+  }${needsNutrition ? "," : ""}` : ""}
+  ${needsNutrition ? `"calories": 350,
+  "nutritionFacts": { "energy": 1465, "protein": 18, "carbs": 42, "fat": 12 },
+  "allergens": ["gluten", "dairy"]` : ""}
+}
+
+Translation rules:
+- name (en): use the internationally recognised English name (Doner Kebab, not Meat Döner; Meatball, not Köfte)
+- name (ru): use standard Russian name if known, else natural transliteration (Донер-кебаб)
+- name (ar): use Arabic name if known for Turkish food, else transliterate
+- description: honest, max 50 words, no fine-dining language
+- ingredients: comma-separated main ingredients in that language
+- allergenNote: brief allergen sentence in that language (empty string if none)
+${needsNutrition ? `
+Nutrition rules:
+- calories: total kcal for a standard portion
+- energy: kJ (= kcal × 4.184)
+- protein/carbs/fat: grams
+- allergens: array from [gluten, dairy, eggs, nuts, sesame, soy, fish, shellfish] (empty if none)` : ""}`;
+
+      let success = false;
+      let tokensUsed: number | undefined;
+
+      try {
+        const aiResp = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.4,
+            response_format: { type: "json_object" },
+          }),
+          signal: AbortSignal.timeout(30000),
+        });
+
+        if (!aiResp.ok) {
+          const err = await aiResp.text();
+          throw new Error(`OpenAI ${aiResp.status}: ${err.slice(0, 200)}`);
+        }
+
+        const data = await aiResp.json() as { choices?: Array<{ message?: { content?: string } }>; usage?: { total_tokens?: number } };
+        tokensUsed = data.usage?.total_tokens;
+        const content = data.choices?.[0]?.message?.content ?? "{}";
+        const parsed = JSON.parse(content) as {
+          translations?: Record<string, { name?: string; description?: string; ingredients?: string; allergenNote?: string }>;
+          calories?: number;
+          nutritionFacts?: { energy?: number; protein?: number; carbs?: number; fat?: number };
+          allergens?: string[];
+        };
+
+        /* Upsert translations */
+        if (parsed.translations) {
+          for (const [lang, t] of Object.entries(parsed.translations)) {
+            if (!t.name) continue;
+            const existing = langs.get(lang);
+            if (existing) {
+              await db.update(productTranslationsTable)
+                .set({ name: t.name, description: t.description ?? null, ingredients: t.ingredients ?? null, allergenNote: t.allergenNote ?? null })
+                .where(eq(productTranslationsTable.id, existing.id));
+            } else {
+              await db.insert(productTranslationsTable).values({
+                productId: product.id, languageCode: lang,
+                name: t.name, description: t.description ?? null,
+                ingredients: t.ingredients ?? null, allergenNote: t.allergenNote ?? null,
+              }).onConflictDoNothing();
+            }
+          }
+        }
+
+        /* Update nutrition */
+        if (needsNutrition && (parsed.calories || parsed.nutritionFacts)) {
+          await db.update(productsTable).set({
+            calories: parsed.calories ?? null,
+            nutritionFacts: parsed.nutritionFacts ?? {},
+            allergens: parsed.allergens ?? [],
+          }).where(eq(productsTable.id, product.id));
+        }
+
+        success = true;
+        enriched++;
+        send({ type: "log", msg: `    ✓ ${missingLangs.join("+")}${needsNutrition ? " +besin" : ""}` });
+
+        /* Rate limit: 150ms between calls */
+        await new Promise((r) => setTimeout(r, 150));
+      } catch (e) {
+        errors.push(`${trName}: ${String(e)}`);
+        send({ type: "log", msg: `    ❌ ${String(e).slice(0, 80)}` });
+      }
+
+      await db.insert(aiGenerationLogsTable).values({
+        productId: product.id, productName: trName, model: "gpt-4o-mini",
+        tokensUsed: tokensUsed ?? null, success,
+        errorMessage: success ? null : (errors[errors.length - 1] ?? null),
+      }).catch(() => {});
+    }
+
+    send({ type: "progress", done: toEnrich.length, total: toEnrich.length, label: "Tamamlandı" });
+    send({ type: "log", msg: `\n✅ ${enriched} ürün zenginleştirildi.` });
+    send({ type: "done", enriched, errors });
+  } catch (e) {
+    send({ type: "error", msg: String(e) });
+  }
+
+  res.end();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   GET /import/enrich-status  — quick counts for the UI
+   ══════════════════════════════════════════════════════════════ */
+
+router.get("/import/enrich-status", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const total = await db.select({ count: sql<number>`count(*)` }).from(productsTable)
+      .where(eq(productsTable.isActive, true));
+    const totalCount = Number(total[0]?.count ?? 0);
+
+    /* count products with EN translation */
+    const withEn = await db.select({ count: sql<number>`count(distinct product_id)` })
+      .from(productTranslationsTable)
+      .where(eq(productTranslationsTable.languageCode, "en"));
+    const withRu = await db.select({ count: sql<number>`count(distinct product_id)` })
+      .from(productTranslationsTable)
+      .where(eq(productTranslationsTable.languageCode, "ru"));
+    const withAr = await db.select({ count: sql<number>`count(distinct product_id)` })
+      .from(productTranslationsTable)
+      .where(eq(productTranslationsTable.languageCode, "ar"));
+
+    res.json({
+      total: totalCount,
+      withEn: Number(withEn[0]?.count ?? 0),
+      withRu: Number(withRu[0]?.count ?? 0),
+      withAr: Number(withAr[0]?.count ?? 0),
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e) });
+  }
 });
 
 export default router;
