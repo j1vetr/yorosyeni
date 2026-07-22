@@ -13,7 +13,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         PORT: "1088",
-        DATABASE_URL: "postgresql://qrmenu:QrMenu_Yoros2024!@localhost:5432/qrmenu_db",
+        DATABASE_URL: "postgresql://qrmenuyoros:QrMenu_Yoros2024!@localhost:5432/qrmenuyoros_db",
         SESSION_SECRET: "BURAYA_OPENSSL_CIKTISI_YAPISTIR",
         DEFAULT_OBJECT_STORAGE_BUCKET_ID: "",
         PRIVATE_OBJECT_DIR: "/var/www/yorosyeni/storage/private",

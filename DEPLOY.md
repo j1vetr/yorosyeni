@@ -42,9 +42,9 @@ sudo -u postgres psql
 PostgreSQL içinde şu komutları çalıştır:
 
 ```sql
-CREATE USER qrmenu WITH PASSWORD 'QrMenu_Yoros2024!';
-CREATE DATABASE qrmenu_db OWNER qrmenu;
-GRANT ALL PRIVILEGES ON DATABASE qrmenu_db TO qrmenu;
+CREATE USER qrmenuyoros WITH PASSWORD 'QrMenu_Yoros2024!';
+CREATE DATABASE qrmenuyoros_db OWNER qrmenuyoros;
+GRANT ALL PRIVILEGES ON DATABASE qrmenuyoros_db TO qrmenuyoros;
 \q
 ```
 
@@ -98,7 +98,7 @@ pnpm --filter @workspace/api-server build
 
 ```bash
 cd /var/www/yorosyeni
-DATABASE_URL="postgresql://qrmenu:QrMenu_Yoros2024!@localhost:5432/qrmenu_db" \
+DATABASE_URL="postgresql://qrmenuyoros:QrMenu_Yoros2024!@localhost:5432/qrmenuyoros_db" \
   pnpm --filter @workspace/db push
 ```
 
@@ -107,7 +107,7 @@ DATABASE_URL="postgresql://qrmenu:QrMenu_Yoros2024!@localhost:5432/qrmenu_db" \
 ## 8. Admin Kullanıcısı Ekle (toov / Toov1453@@)
 
 ```bash
-sudo -u postgres psql -d qrmenu_db -c "
+sudo -u postgres psql -d qrmenuyoros_db -c "
 INSERT INTO users (username, password_hash)
 VALUES ('toov', '\$2b\$12\$0AYtZWbbFrgAZfSeKRCt1.9vn66QeipAuB6IY1RzvX7eP7gtSRfsu');
 "
@@ -118,13 +118,13 @@ VALUES ('toov', '\$2b\$12\$0AYtZWbbFrgAZfSeKRCt1.9vn66QeipAuB6IY1RzvX7eP7gtSRfsu
 ## 9. Menü Başlangıç Ayarları (İlk Seed)
 
 ```bash
-sudo -u postgres psql -d qrmenu_db -c "
+sudo -u postgres psql -d qrmenuyoros_db -c "
 INSERT INTO settings (slug, restaurant_name, primary_color, currency, default_language)
 VALUES ('main', 'Yoros Cafe Restaurant', '#C9A84C', 'TRY', 'tr')
 ON CONFLICT (slug) DO NOTHING;
 "
 
-sudo -u postgres psql -d qrmenu_db -c "
+sudo -u postgres psql -d qrmenuyoros_db -c "
 INSERT INTO languages (code, name, is_active, sort_order) VALUES
   ('tr', 'Türkçe', true, 0),
   ('en', 'English', true, 1),
@@ -189,7 +189,7 @@ BASE_PATH=/ PORT=1088 pnpm --filter @workspace/qr-menu build
 pnpm --filter @workspace/api-server build
 
 # Eğer DB schema değiştiyse:
-DATABASE_URL="postgresql://qrmenu:QrMenu_Yoros2024!@localhost:5432/qrmenu_db" \
+DATABASE_URL="postgresql://qrmenuyoros:QrMenu_Yoros2024!@localhost:5432/qrmenuyoros_db" \
   pnpm --filter @workspace/db push
 
 pm2 restart qrmenu
@@ -206,7 +206,7 @@ pm2 restart qrmenu
 | Admin URL | /admin |
 | Admin Kullanıcı | toov |
 | Admin Şifre | Toov1453@@ |
-| DB Kullanıcı | qrmenu |
+| DB Kullanıcı | qrmenuyoros |
 | DB Şifre | QrMenu_Yoros2024! |
-| DB Adı | qrmenu_db |
+| DB Adı | qrmenuyoros_db |
 | Proje Dizini | /var/www/yorosyeni |
