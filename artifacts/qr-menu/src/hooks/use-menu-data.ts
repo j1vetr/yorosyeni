@@ -47,6 +47,7 @@ export interface RestaurantInfo {
   qualityNote?: string;
   address?: string;
   description?: string;
+  priceUpdatedAt?: string;
   wifiName?: string;
   wifiPassword?: string;
   mapsUrl?: string;

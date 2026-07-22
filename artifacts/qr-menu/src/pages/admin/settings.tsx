@@ -14,6 +14,7 @@ interface Settings {
   currency: string;
   defaultLanguage: string;
   openAiKey?: string;
+  priceUpdatedAt?: string;
   wifiName?: string;
   wifiPassword?: string;
   mapsUrl?: string;
@@ -239,6 +240,15 @@ export default function AdminSettings() {
             placeholder="Boş bırakılırsa gösterilmez"
           />
           <p className="mt-1 text-xs text-neutral-500">Header'da logo altında görünür. Örn: "Kitchen &amp; Bar"</p>
+        </Field>
+        <Field label="Fiyat Güncelleme Tarihi">
+          <input
+            value={form.priceUpdatedAt ?? ""}
+            onChange={(e) => set("priceUpdatedAt", e.target.value)}
+            className={inputCls}
+            placeholder="Örn: 15.07.2025"
+          />
+          <p className="mt-1 text-xs text-neutral-500">Müşteri menüsünde kategori çubuğunun altında gösterilir. Boş bırakılırsa görünmez.</p>
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Para Birimi">

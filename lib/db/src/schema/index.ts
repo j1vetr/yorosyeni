@@ -42,6 +42,7 @@ export const settingsTable = pgTable("settings", {
   address: text("address"),
   description: text("description"),
   logoWidth: integer("logo_width"),
+  priceUpdatedAt: text("price_updated_at"),
   wifiName: text("wifi_name"),
   wifiPassword: text("wifi_password"),
   mapsUrl: text("maps_url"),

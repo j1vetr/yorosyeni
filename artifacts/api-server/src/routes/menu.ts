@@ -131,6 +131,7 @@ async function buildMenuResponse(slug: string, lang: string) {
       qualityNote: settings.qualityNote ?? null,
       address: settings.address ?? null,
       description: settings.description ?? null,
+      priceUpdatedAt: settings.priceUpdatedAt ?? null,
       wifiName: settings.wifiName ?? null,
       wifiPassword: settings.wifiPassword ?? null,
       mapsUrl: settings.mapsUrl ?? null,

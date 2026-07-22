@@ -161,6 +161,24 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Fiyat Güncelleme Tarihi */}
+      {r.priceUpdatedAt && (
+        <div className="max-w-xl mx-auto px-4 mb-3">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {{
+                tr: "Fiyat Güncelleme Tarihi",
+                en: "Price Last Updated",
+                ru: "Дата обновления цен",
+                ar: "تاريخ تحديث الأسعار",
+              }[lang] ?? "Fiyat Güncelleme Tarihi"}
+              {": "}
+            </span>
+            <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>{r.priceUpdatedAt}</span>
+          </div>
+        </div>
+      )}
+
       {/* Category Icon Bar */}
       <div className="mb-6 max-w-xl mx-auto">
         <div className="flex gap-3 overflow-x-auto px-4 scrollbar-hide pb-1">
