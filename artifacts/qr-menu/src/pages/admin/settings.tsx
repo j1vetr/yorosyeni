@@ -98,18 +98,40 @@ async function uploadImage(file: File): Promise<string> {
   return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"), "image/jpeg");
 }
 
-/** Logo yükleme: PNG ise şeffaflık korunur (JPEG dönüşümü yok). */
+/** Canvas aracılığıyla dosyayı PNG Blob'a çevirir (alfa kanalı korunur). */
+async function convertToPng(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width  = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d")!.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("toBlob failed"))),
+        "image/png",
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load failed")); };
+    img.src = url;
+  });
+}
+
+/**
+ * Logo yükleme.
+ * SVG → doğrudan SVG olarak gönderilir.
+ * Diğer tüm formatlar (PNG, JPEG, WEBP…) → canvas üzerinden PNG'ye çevrilir;
+ * böylece şeffaflık her zaman korunur ve JPEG artefaktı oluşmaz.
+ */
 async function uploadLogo(file: File): Promise<string> {
-  if (file.type === "image/png") {
-    // PNG → doğrudan yükle, şeffaflık bozulmaz
-    return uploadBlob(file, file.name, "image/png");
-  }
   if (file.type === "image/svg+xml") {
     return uploadBlob(file, file.name, "image/svg+xml");
   }
-  // Diğer formatlar → JPEG sıkıştır
-  const blob = await compressImage(file);
-  return uploadBlob(blob, file.name.replace(/\.[^.]+$/, ".jpg"), "image/jpeg");
+  // PNG dahil tüm raster formatlar → PNG'ye çevir (şeffaflık garantili)
+  const pngBlob = await convertToPng(file);
+  return uploadBlob(pngBlob, file.name.replace(/\.[^.]+$/, ".png"), "image/png");
 }
 
 export default function AdminSettings() {

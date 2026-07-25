@@ -95,8 +95,11 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
             {!showBack && !hasLocation && !hasWifi && <div className="w-8" />}
           </div>
 
-          {/* ── Center: logo ── */}
-          <div className="flex flex-col items-center flex-1 min-w-0">
+          {/* ── Center: logo (tıklanınca ana sayfa) ── */}
+          <button
+            className="flex flex-col items-center flex-1 min-w-0"
+            onClick={() => navigate("/")}
+          >
             {r?.logoUrl ? (
               <img
                 src={r.logoUrl}
@@ -120,30 +123,31 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
                 {r.tagline}
               </span>
             )}
-          </div>
+          </button>
 
           {/* ── Right: language switcher ── */}
           <div ref={dropRef} className="w-auto flex-shrink-0 relative">
             <button
               onClick={() => setLangOpen((v) => !v)}
-              className="flex items-center gap-1.5 px-2 py-1.5 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
             >
-              <FlagImg code={lang} size={18} />
+              <FlagImg code={lang} size={22} />
+              <span className="text-xs font-semibold text-white/80 tracking-wide">{lang.toUpperCase()}</span>
               <ChevronDown
-                className={`w-3 h-3 text-white/50 transition-transform ${langOpen ? "rotate-180" : ""}`}
+                className={`w-3.5 h-3.5 text-white/50 transition-transform ${langOpen ? "rotate-180" : ""}`}
               />
             </button>
             {langOpen && menu && menu.languages.length > 1 && (
-              <div className="absolute right-0 top-full mt-2 min-w-[140px] bg-[#1C1C1C] rounded-xl border border-white/10 shadow-xl overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-2 min-w-[160px] bg-[#1C1C1C] rounded-xl border border-white/10 shadow-xl overflow-hidden z-50">
                 {menu.languages.map((l) => (
                   <button
                     key={l.code}
                     onClick={() => { setLang(l.code); setLangOpen(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-white hover:bg-white/5 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors"
                     style={lang === l.code ? { color: accent } : {}}
                   >
-                    <FlagImg code={l.code} size={20} />
-                    <span>{l.name}</span>
+                    <FlagImg code={l.code} size={24} />
+                    <span className="font-medium">{l.name}</span>
                   </button>
                 ))}
               </div>
